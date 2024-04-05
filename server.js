@@ -14,7 +14,7 @@ app.use(
       /\.scuttle\.gg%/,
       "https://www.scuttle.gg",
       "https://api.scuttle.gg",
-      "https://scuttle-api-db0e0e763362.herokuapp.com/",
+      "https://scuttle-website-aa38f423d608.herokuapp.com",
     ],
   })
 );
