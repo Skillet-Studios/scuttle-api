@@ -1,0 +1,26 @@
+{
+  "name": "scuttlewebserver",
+  "version": "1.0.0",
+  "description": "\"Backend API for ScuttleWeb\"",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/eduardoalba00/ScuttleWebServer.git"
+  },
+  "author": "Eduardo Alba",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/eduardoalba00/ScuttleWebServer/issues"
+  },
+  "homepage": "https://github.com/eduardoalba00/ScuttleWebServer#readme",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mongodb": "^6.5.0",
+    "mongoose": "^8.3.0"
+  }
+}
