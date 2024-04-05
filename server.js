@@ -13,7 +13,7 @@ app.use(
       "http://localhost:3000",
       /\.scuttle\.gg%/,
       "https://www.scuttle.gg",
-      "https://www.api.scuttle.gg",
+      "https://api.scuttle.gg",
       "https://scuttle-api-db0e0e763362.herokuapp.com/",
     ],
   })
