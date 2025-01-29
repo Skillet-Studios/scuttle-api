@@ -19,10 +19,12 @@
   },
   "homepage": "https://github.com/eduardoalba00/ScuttleWebServer#readme",
   "dependencies": {
+    "axios": "^1.7.9",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "mongodb": "^6.5.0",
-    "mongoose": "^8.3.0"
+    "mongoose": "^8.3.0",
+    "node-cron": "^3.0.3"
   }
 }
