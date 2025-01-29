@@ -8,6 +8,69 @@ import {
 import { processMatchData } from "../utils/processing.js";
 import { getAreaFromRegion } from "../utils/processing.js";
 
+/*******************************************************
+ * FULL QUEUE_ID_MAP
+ *
+ * Maps a friendly queueType string -> Riot's queueId.
+ * Adapt as needed. Many of these modes are historical or
+ * limited-time. Check their current availability in game.
+ ******************************************************/
+export const QUEUE_ID_MAP = {
+    // 0–100 range, including customs and old event queues
+    custom: 0,
+    snowdown_1v1: 72,
+    snowdown_2v2: 73,
+    hexakill_summoners_rift: 75,
+    urf_snowdown: 76,
+    one_for_all_snowdown: 78,
+    one_for_all_mirror_mode: 79,
+    urf: 83, // Old URF queue
+    bot_urf: 91, // Bot URF mode
+
+    // 300 range: mostly older or special event queues
+    showdown_1v1: 72, // sometimes repeated in different docs
+    showdown_2v2: 73,
+    hexakill_crystal_scar: 98,
+    arurf_5v5: 100, // ARURF
+    nemesis_draft: 310,
+    black_market_brawlers: 313,
+    definitely_not_dominion: 317,
+    all_random_summoners_rift: 325,
+    draft_summoners_rift_6: 400, // old references
+
+    // Modern Summoner's Rift (400–499 range)
+    normal_draft: 400,      // 5v5 Draft Pick
+    ranked_solo: 420,       // 5v5 Ranked Solo
+    normal_blind: 430,      // 5v5 Blind Pick
+    ranked_flex: 440,       // 5v5 Ranked Flex
+    aram: 450,              // ARAM on Howling Abyss
+    blood_hunt_assassin: 600,
+    dark_star_singularity: 610,
+    clash: 700,             // Team-based competition
+    arurf: 900,             // ARURF on Summoner’s Rift
+
+    // Co-op vs AI (Intro/Beginner/Intermediate)
+    coop_vs_ai_intro: 830,
+    coop_vs_ai_beginner: 840,
+    coop_vs_ai_intermediate: 850,
+
+    // Special or event game modes
+    nexus_siege: 940,
+    doom_bots_doom: 950,
+    doom_bots_ranked: 960,
+    project_hunters: 1000,
+    snow_arurf: 1010,
+    one_for_all: 1020,
+    odyssey_extraction_intro: 1030,
+    odyssey_extraction_cadet: 1040,
+    odyssey_extraction_crewmember: 1050,
+    odyssey_extraction_captain: 1060,
+    odyssey_extraction_onslaught: 1070,
+    nexus_blitz: 1200,
+    ultimate_spellbook: 1400,
+};
+
+
 /**
  * Caches the last 30 days worth of ranked solo queue (queue=420) match data
  * for every summoner in each provided guild.
@@ -208,6 +271,66 @@ export async function deleteMatchesOlderThan(days = 31) {
         return result.deletedCount;
     } catch (error) {
         console.error("Error deleting old matches:", error);
+        throw error;
+    }
+}
+
+/**
+ * Fetches all matches stored in the "cached_match_data" collection for a summoner
+ * within the specified number of days, filtered optionally by queue type.
+ *
+ * @param {string} summonerPuuid - The summoner's PUUID.
+ * @param {number} [range=7] - The day range to look back, defaults to 7.
+ * @param {string} [queueType] - The queue type to filter, e.g. "ranked_solo".
+ * @returns {Promise<Array|null>} - A Promise that resolves to an array of match documents or null if none found.
+ */
+export async function fetchAllSummonerMatchDataByRange(
+    summonerPuuid,
+    range = 7,
+    queueType
+) {
+    try {
+        const db = await getDB();
+        const collection = db.collection("cached_match_data");
+
+        console.log(
+            `Fetching all matches for ${summonerPuuid} within the last ${range} days` +
+            (queueType ? ` [queue_type=${queueType}]` : "")
+        );
+
+        // Calculate the time range (lower bound in milliseconds)
+        const now = new Date();
+        const lowerRange = new Date(now.setDate(now.getDate() - range));
+        const lowerRangeEpoch = lowerRange.getTime(); // milliseconds since epoch
+
+        // Create indexes on fields used for querying (if not already done)
+        await collection.createIndex({ summoner_puuid: 1 });
+        await collection.createIndex({ "info.gameStartTimestamp": 1 });
+
+        // Define the base query
+        const query = {
+            summoner_puuid: summonerPuuid,
+            "info.gameStartTimestamp": { $gte: lowerRangeEpoch },
+        };
+
+        // If a recognized queueType is provided, filter by queueId
+        if (queueType && QUEUE_ID_MAP[queueType]) {
+            query["info.queueId"] = QUEUE_ID_MAP[queueType];
+        }
+
+        // Fetch documents
+        const documents = await collection.find(query).toArray();
+
+        // If no documents found, return null
+        if (!documents || documents.length === 0) {
+            console.log(
+                `No summoner match data found for ${summonerPuuid} within the last ${range} days.`
+            );
+            return null;
+        }
+        return documents;
+    } catch (error) {
+        console.error(`Error fetching summoner matches: ${error.message}`);
         throw error;
     }
 }

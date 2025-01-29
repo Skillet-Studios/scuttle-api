@@ -6,6 +6,8 @@ import cors from "cors";
 import guilds from "./routes/guilds.js";
 import commands from "./routes/commands.js";
 import summoners from "./routes/summoners.js";
+import matches from "./routes/matches.js";
+import stats from "./routes/stats.js";
 
 // Import the cron job initializer
 import { initCronJobs } from "./jobs/index.js";
@@ -31,6 +33,8 @@ app.use(
 app.use("/guilds", guilds);
 app.use("/commands", commands);
 app.use("/summoners", summoners);
+app.use("/matches", matches);
+app.use("/stats", stats);
 
 // Decide your server port
 const PORT = process.env.PORT || 4000;
