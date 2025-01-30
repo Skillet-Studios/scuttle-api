@@ -27,3 +27,33 @@ export async function getNumCommandsSent() {
         throw new Error("Database query failed");
     }
 }
+
+/**
+ * Updates the analytics count for a specific command.
+ *
+ * @param {string} command - The name of the command to update analytics for.
+ * @returns {Promise<boolean>} - Returns `true` if the analytics were successfully updated, else `false`.
+ */
+export async function updateCommandAnalytics(command) {
+    try {
+        const db = await getDB();
+        const collection = db.collection("command_analytics");
+
+        const result = await collection.updateOne(
+            { command_name: command },
+            { $inc: { times_called: 1 } },
+            { upsert: true }
+        );
+
+        if (result.acknowledged) {
+            console.log(`Command '${command}' analytics updated.`);
+            return true;
+        } else {
+            console.log(`Failed to update analytics for command '${command}'.`);
+            return false;
+        }
+    } catch (error) {
+        console.error(`Error updating analytics for command '${command}':`, error.message);
+        return false;
+    }
+}

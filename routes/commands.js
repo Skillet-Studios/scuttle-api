@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getNumCommandsSent } from "../models/commands.js";
+import { getNumCommandsSent, updateCommandAnalytics } from "../models/commands.js";
 
 /**
  * Express router for "commands" related endpoints.
@@ -27,5 +27,47 @@ router.get("/count", async (req, res) => {
         });
     }
 });
+
+/**
+ * POST /commands/analytics/count
+ * Expects JSON body: { "command": "command_name" }
+ *
+ * Updates the analytics count for a specific command.
+ */
+router.post("/analytics/count", async (req, res) => {
+    try {
+        const { command } = req.body;
+
+        // Validate input
+        if (!command) {
+            return res.status(400).json({
+                success: false,
+                message: "Missing required field: command.",
+            });
+        }
+
+        // Call the updateCommandAnalytics function
+        const success = await updateCommandAnalytics(command);
+
+        if (success) {
+            return res.status(200).json({
+                success: true,
+                message: `Analytics for command '${command}' updated successfully.`,
+            });
+        } else {
+            return res.status(500).json({
+                success: false,
+                message: `Failed to update analytics for command '${command}'.`,
+            });
+        }
+    } catch (error) {
+        console.error("Error with POST /commands/analytics/count", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to update command analytics. Please try again later.",
+        });
+    }
+});
+
 
 export default router;
