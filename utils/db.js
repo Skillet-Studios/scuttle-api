@@ -32,7 +32,7 @@ export async function getDB() {
     if (!client) {
         client = new MongoClient(uri);
         await client.connect();
-        db = client.db("league_discord_bot");
+        db = client.db("Scuttle");
     }
     return db;
 }
