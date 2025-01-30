@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getNumGuilds, getAllGuilds, addGuild, setMainChannel } from "../models/guilds.js";
+import { getNumGuilds, getAllGuilds, addGuild, setMainChannel, getMainChannel } from "../models/guilds.js";
 
 /**
  * Express router for "guilds" related endpoints.
@@ -125,6 +125,42 @@ router.post("/channel", async (req, res) => {
         res.status(500).json({
             success: false,
             message: "Failed to set main channel. Please try again later.",
+        });
+    }
+});
+
+router.get("/channel", async (req, res) => {
+    try {
+        const guildId = req.query.guildId;
+
+        // Validate that guildId is provided
+        if (!guildId) {
+            return res.status(400).json({
+                success: false,
+                message: "Missing required query parameter: guildId.",
+            });
+        }
+
+        // Call the getMainChannel function
+        const mainChannelId = await getMainChannel(guildId);
+
+        if (mainChannelId) {
+            return res.status(200).json({
+                success: true,
+                guildId,
+                mainChannelId,
+            });
+        } else {
+            return res.status(404).json({
+                success: false,
+                message: `Main channel not found for Guild ID '${guildId}'.`,
+            });
+        }
+    } catch (error) {
+        console.error("Error with GET /guilds/main_channel", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to retrieve main channel. Please try again later.",
         });
     }
 });

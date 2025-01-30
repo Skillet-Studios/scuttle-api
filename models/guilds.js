@@ -136,3 +136,30 @@ export async function setMainChannel(guildId, channelId) {
         return false;
     }
 }
+
+/**
+ * Retrieves the main_channel_id for a specific Guild.
+ *
+ * @param {string} guildId - The Discord guild ID (as a string).
+ * @returns {Promise<string|null>} - Returns the main_channel_id if found, else null.
+ */
+export async function getMainChannel(guildId) {
+    try {
+        const db = await getDB();
+        const collection = db.collection("discord_servers");
+
+        // Find the guild document by guild_id
+        const document = await collection.findOne({ guild_id: Long.fromString(guildId) });
+
+        if (document) {
+            const mainChannelId = document.main_channel_id ? document.main_channel_id.toString() : null;
+            return mainChannelId;
+        } else {
+            console.log(`Document with Guild ID ${guildId} not found.`);
+            return null;
+        }
+    } catch (error) {
+        console.error(`Error retrieving main channel for Guild '${guildId}':`, error.message);
+        throw new Error("Database query failed");
+    }
+}
