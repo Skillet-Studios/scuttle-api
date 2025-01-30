@@ -4,7 +4,8 @@ import {
     getSummonersByGuildId,
     updateCachedTimestamp,
     checkIfCachedWithinRange,
-    addSummoner
+    addSummoner,
+    removeSummoner
 } from "../models/summoners.js";
 
 const router = Router();
@@ -142,6 +143,48 @@ router.post("/", async (req, res) => {
         res.status(500).json({
             success: false,
             message: "Failed to add summoner to guild. Please try again later.",
+        });
+    }
+});
+
+/**
+ * DELETE /summoners
+ * Example usage: DELETE /summoners?summonerRiotId=GameName%20%23Tag&guildId=123456789012345678
+ *
+ * Removes a summoner from a specific guild.
+ * Expects query parameters `summonerRiotId` and `guildId`.
+ */
+router.delete("/", async (req, res) => {
+    try {
+        const { summonerRiotId, guildId } = req.query;
+
+        // Validate input
+        if (!summonerRiotId || !guildId) {
+            return res.status(400).json({
+                success: false,
+                message: "Missing required query parameters: summonerRiotId and guildId.",
+            });
+        }
+
+        // Call the removeSummoner function
+        const success = await removeSummoner(summonerRiotId, guildId);
+
+        if (success) {
+            return res.status(200).json({
+                success: true,
+                message: `Summoner '${summonerRiotId}' was successfully removed from Guild '${guildId}'.`,
+            });
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: `Failed to remove summoner '${summonerRiotId}' from Guild '${guildId}'.`,
+            });
+        }
+    } catch (error) {
+        console.error("Error with DELETE /summoners", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to remove summoner from guild. Please try again later.",
         });
     }
 });

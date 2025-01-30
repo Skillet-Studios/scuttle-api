@@ -200,3 +200,39 @@ export async function addSummoner(summonerRiotId, guildId) {
         return false;
     }
 }
+
+/**
+ * Removes a summoner from a specific Guild.
+ *
+ * @param {string} summonerRiotId - The summoner's Riot ID (e.g., "GameName #Tag").
+ * @param {string} guildId - The Discord guild ID from which the summoner should be removed.
+ * @returns {Promise<boolean>} - Returns `true` if the summoner was successfully removed, else `false`.
+ */
+export async function removeSummoner(summonerRiotId, guildId) {
+    try {
+        guildId = Long.fromString(guildId);
+        const db = await getDB();
+        const collection = db.collection("discord_servers");
+
+        // Remove summoner from the summoners array
+        const result = await collection.updateOne(
+            { guild_id: guildId },
+            { $pull: { summoners: { name: summonerRiotId } } }
+        );
+
+        if (result.acknowledged) {
+            console.log(
+                `Document for summoner '${summonerRiotId}' was successfully removed from Guild with id ${guildId}`
+            );
+            return true;
+        } else {
+            console.log(
+                `Failed to remove document from MongoDB for summoner '${summonerRiotId}'.`
+            );
+            return false;
+        }
+    } catch (error) {
+        console.error(`Error removing summoner '${summonerRiotId}' from Guild '${guildId}':`, error.message);
+        return false;
+    }
+}
