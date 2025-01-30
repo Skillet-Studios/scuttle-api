@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getNumGuilds, getAllGuilds, addGuild, setMainChannel, getMainChannel, updateGuildCount } from "../models/guilds.js";
+import { getNumGuilds, getAllGuilds, addGuild, setMainChannel, getMainChannel, updateGuildCount, getGuildById } from "../models/guilds.js";
 
 /**
  * Express router for "guilds" related endpoints.
@@ -202,6 +202,50 @@ router.put("/count", async (req, res) => {
         res.status(500).json({
             success: false,
             message: "Failed to update guild count. Please try again later.",
+        });
+    }
+});
+
+/**
+ * GET /guilds
+ * Example usage: /guilds?guildId=123456789012345678
+ *
+ * Retrieves guild data by its Discord guild ID.
+ *
+ * Query Parameters:
+ * - guildId (string, required): The Discord guild ID.
+ */
+router.get("/filter", async (req, res) => {
+    try {
+        const guildId = req.query.guildId;
+
+        // Validate that guildId is provided
+        if (!guildId) {
+            return res.status(400).json({
+                success: false,
+                message: "Missing required query parameter: guildId.",
+            });
+        }
+
+        // Call the getGuildById function
+        const guildData = await getGuildById(guildId);
+
+        if (guildData) {
+            return res.status(200).json({
+                success: true,
+                guild: guildData,
+            });
+        } else {
+            return res.status(404).json({
+                success: false,
+                message: `Guild with ID '${guildId}' not found.`,
+            });
+        }
+    } catch (error) {
+        console.error("Error with GET /guild", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to retrieve guild data. Please try again later.",
         });
     }
 });

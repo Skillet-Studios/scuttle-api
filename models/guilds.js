@@ -197,3 +197,39 @@ export async function updateGuildCount(count) {
         return false;
     }
 }
+
+/**
+ * Retrieves guild data by its Discord guild ID.
+ *
+ * @param {string} guildId - The Discord guild ID as a string.
+ * @returns {Promise<Object|null>} - Returns the guild document if found, else null.
+ */
+export async function getGuildById(guildId) {
+    try {
+        const db = await getDB();
+        const collection = db.collection("discord_servers");
+
+        // Convert guildId to Long if necessary
+        const guildIdLong = Long.fromString(guildId);
+
+        // Find the guild document by guild_id
+        const document = await collection.findOne({ guild_id: guildIdLong });
+
+        if (document) {
+            // Optionally convert Long fields to string for easier handling
+            if (document.guild_id && document.guild_id.toString) {
+                document.guild_id = document.guild_id.toString();
+            }
+            if (document.main_channel_id && document.main_channel_id.toString) {
+                document.main_channel_id = document.main_channel_id.toString();
+            }
+            return document;
+        } else {
+            console.log(`Guild with ID ${guildId} not found.`);
+            return null;
+        }
+    } catch (error) {
+        console.error(`Error retrieving guild with ID '${guildId}':`, error.message);
+        throw new Error("Database query failed");
+    }
+}
