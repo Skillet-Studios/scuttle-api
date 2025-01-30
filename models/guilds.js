@@ -102,3 +102,37 @@ export async function addGuild(guildName, guildId) {
         return false;
     }
 }
+
+/**
+ * Sets the main channel for a specific Guild.
+ *
+ * The main channel is where automatic messages will be sent.
+ *
+ * @param {string} guildId - The Discord guild ID (as a string).
+ * @param {string} channelId - The Discord channel ID to set as the main channel.
+ * @returns {Promise<boolean>} - Returns `true` if the main channel was successfully set, else `false`.
+ */
+export async function setMainChannel(guildId, channelId) {
+    try {
+        const db = await getDB();
+        const collection = db.collection("discord_servers");
+
+        // Update the main_channel_id for the specified guild
+        const result = await collection.updateOne(
+            { guild_id: Long.fromString(guildId) },
+            { $set: { main_channel_id: Long.fromString(channelId) } },
+            { upsert: true } // Creates a new document if one doesn't exist
+        );
+
+        if (result.modifiedCount > 0 || result.upsertedId) {
+            console.log(`Main channel for Guild: ${guildId} updated to ${channelId}.`);
+            return true;
+        } else {
+            console.log(`Main channel for guild ${guildId} not changed.`);
+            return false;
+        }
+    } catch (error) {
+        console.error(`Error setting main channel for Guild '${guildId}':`, error.message);
+        return false;
+    }
+}

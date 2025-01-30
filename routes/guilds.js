@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getNumGuilds, getAllGuilds, addGuild } from "../models/guilds.js";
+import { getNumGuilds, getAllGuilds, addGuild, setMainChannel } from "../models/guilds.js";
 
 /**
  * Express router for "guilds" related endpoints.
@@ -83,6 +83,48 @@ router.post("/", async (req, res) => {
         res.status(500).json({
             success: false,
             message: "Failed to add guild. Please try again later.",
+        });
+    }
+});
+
+/**
+ * POST /guilds/channel
+ * Expects JSON body: { "guildId": "123456789012345678", "channelId": "876543210987654321" }
+ *
+ * Sets the main channel for a specific guild.
+ * The main channel is where automatic messages will be sent.
+ */
+router.post("/channel", async (req, res) => {
+    try {
+        const { guildId, channelId } = req.body;
+
+        // Validate input
+        if (!guildId || !channelId) {
+            return res.status(400).json({
+                success: false,
+                message: "Missing required fields: guildId and channelId.",
+            });
+        }
+
+        // Call the setMainChannel function
+        const success = await setMainChannel(guildId, channelId);
+
+        if (success) {
+            return res.status(200).json({
+                success: true,
+                message: `Main channel for Guild '${guildId}' was successfully set to '${channelId}'.`,
+            });
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: `Failed to set main channel for Guild '${guildId}'.`,
+            });
+        }
+    } catch (error) {
+        console.error("Error with POST /guilds/set_main_channel", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to set main channel. Please try again later.",
         });
     }
 });
