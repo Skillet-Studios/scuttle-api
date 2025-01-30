@@ -334,3 +334,61 @@ export async function fetchAllSummonerMatchDataByRange(
         throw error;
     }
 }
+
+/**
+ * Fetches all matches stored in the "cached_match_data" collection for a summoner
+ * from a specified start date until the current datetime, optionally filtered by queue type.
+ *
+ * @param {string} summonerPuuid - The summoner's PUUID.
+ * @param {Date} startDate - The start date from which to fetch matches.
+ * @param {string} [queueType] - The queue type to filter matches, e.g., "ranked_solo".
+ * @returns {Promise<Array|null>} - A Promise that resolves to an array of match documents or null if none found.
+ */
+export async function fetchAllSummonerMatchDataSinceDate(
+    summonerPuuid,
+    startDate,
+    queueType
+) {
+    try {
+        const db = await getDB();
+        const collection = db.collection("cached_match_data");
+
+        console.log(
+            `Fetching all matches for ${summonerPuuid} since ${startDate.toISOString()}` +
+            (queueType ? ` [queueType=${queueType}]` : "")
+        );
+
+        // Convert startDate to epoch milliseconds
+        const startDateEpoch = startDate.getTime();
+
+        // Create indexes on fields used for querying (if not already done)
+        await collection.createIndex({ summoner_puuid: 1 });
+        await collection.createIndex({ "info.gameStartTimestamp": 1 });
+
+        // Define the base query
+        const query = {
+            summoner_puuid: summonerPuuid,
+            "info.gameStartTimestamp": { $gte: startDateEpoch },
+        };
+
+        // If a recognized queueType is provided, filter by queueId
+        if (queueType && QUEUE_ID_MAP[queueType]) {
+            query["info.queueId"] = QUEUE_ID_MAP[queueType];
+        }
+
+        // Fetch documents
+        const documents = await collection.find(query).toArray();
+
+        // If no documents found, return null
+        if (!documents || documents.length === 0) {
+            console.log(
+                `No summoner match data found for ${summonerPuuid} since ${startDate.toISOString()}.`
+            );
+            return null;
+        }
+        return documents;
+    } catch (error) {
+        console.error(`Error fetching summoner matches since date: ${error.message}`);
+        throw error;
+    }
+}
