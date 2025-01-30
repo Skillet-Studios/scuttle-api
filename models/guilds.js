@@ -1,5 +1,6 @@
 import { getDB } from "../utils/db.js";
 import { ObjectId } from "mongodb";
+import { Long } from "mongodb";
 
 /**
  * Gets the total number of guilds from the "guild_count" collection.
@@ -56,5 +57,48 @@ export async function getAllGuilds() {
     } catch (error) {
         console.error("Error fetching total guilds:", error);
         throw new Error("Database query failed");
+    }
+}
+
+/**
+ * Adds a new Guild to the "discord_servers" collection.
+ *
+ * @param {string} guildName - The name of the guild.
+ * @param {string} guildId - The Discord guild ID (as a string).
+ * @returns {Promise<boolean>} - Returns `true` if the guild was successfully added, else `false`.
+ */
+export async function addGuild(guildName, guildId) {
+    try {
+        const db = await getDB();
+        const collection = db.collection("discord_servers");
+
+        // Check if guild_id already exists
+        const existingGuild = await collection.findOne({ guild_id: Long.fromString(guildId) });
+        if (existingGuild) {
+            console.log(`A document with the guild_id '${guildId}' already exists.`);
+            return false;
+        }
+
+        // Create the new guild document
+        const document = {
+            name: guildName,
+            guild_id: Long.fromString(guildId),
+            date_added: new Date(),
+        };
+
+        const result = await collection.insertOne(document);
+
+        if (result.acknowledged) {
+            console.log(
+                `Document for guild '${guildName}' was successfully inserted into MongoDB with _id: ${result.insertedId}`
+            );
+            return true;
+        } else {
+            console.log(`Failed to insert document into MongoDB for guild '${guildName}'.`);
+            return false;
+        }
+    } catch (error) {
+        console.error(`Error adding guild '${guildName}' with ID '${guildId}':`, error.message);
+        return false;
     }
 }

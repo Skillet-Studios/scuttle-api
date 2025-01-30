@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getNumGuilds, getAllGuilds } from "../models/guilds.js";
+import { getNumGuilds, getAllGuilds, addGuild } from "../models/guilds.js";
 
 /**
  * Express router for "guilds" related endpoints.
@@ -45,3 +45,44 @@ router.get("/count", async (req, res) => {
 });
 
 export default router;
+
+/**
+ * POST /guilds
+ * Expects JSON body: { "guildName": "Guild Name", "guildId": "123456789012345678" }
+ *
+ * Creates and inserts a new Guild into the database.
+ */
+router.post("/", async (req, res) => {
+    try {
+        const { guildName, guildId } = req.body;
+
+        // Validate input
+        if (!guildName || !guildId) {
+            return res.status(400).json({
+                success: false,
+                message: "Missing required fields: guildName and guildId.",
+            });
+        }
+
+        // Call the addGuild function
+        const success = await addGuild(guildName, guildId);
+
+        if (success) {
+            return res.status(200).json({
+                success: true,
+                message: `Guild '${guildName}' was successfully added with ID '${guildId}'.`,
+            });
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: `Failed to add Guild '${guildName}' with ID '${guildId}'. It might already exist.`,
+            });
+        }
+    } catch (error) {
+        console.error("Error with POST /guilds/add", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to add guild. Please try again later.",
+        });
+    }
+});
