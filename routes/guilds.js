@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getNumGuilds, getAllGuilds, addGuild, setMainChannel, getMainChannel } from "../models/guilds.js";
+import { getNumGuilds, getAllGuilds, addGuild, setMainChannel, getMainChannel, updateGuildCount } from "../models/guilds.js";
 
 /**
  * Express router for "guilds" related endpoints.
@@ -161,6 +161,47 @@ router.get("/channel", async (req, res) => {
         res.status(500).json({
             success: false,
             message: "Failed to retrieve main channel. Please try again later.",
+        });
+    }
+});
+
+/**
+ * PUT /guilds/count
+ * Expects JSON body: { "count": 150 }
+ *
+ * Updates the total number of guilds in the database.
+ */
+router.put("/count", async (req, res) => {
+    try {
+        const { count } = req.body;
+
+        // Validate input
+        if (count === undefined || typeof count !== "number" || count < 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid or missing required field: count. It must be a non-negative number.",
+            });
+        }
+
+        // Call the updateGuildCount function
+        const success = await updateGuildCount(count);
+
+        if (success) {
+            return res.status(200).json({
+                success: true,
+                message: `Guild count successfully updated to ${count}.`,
+            });
+        } else {
+            return res.status(500).json({
+                success: false,
+                message: "Failed to update guild count. Please try again later.",
+            });
+        }
+    } catch (error) {
+        console.error("Error with PUT /guilds/count", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to update guild count. Please try again later.",
         });
     }
 });

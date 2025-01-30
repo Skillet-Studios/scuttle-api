@@ -1,6 +1,5 @@
 import { getDB } from "../utils/db.js";
-import { ObjectId } from "mongodb";
-import { Long } from "mongodb";
+import { Long, ObjectId } from "mongodb";
 
 /**
  * Gets the total number of guilds from the "guild_count" collection.
@@ -161,5 +160,40 @@ export async function getMainChannel(guildId) {
     } catch (error) {
         console.error(`Error retrieving main channel for Guild '${guildId}':`, error.message);
         throw new Error("Database query failed");
+    }
+}
+
+/**
+ * Updates the guild count in the "guild_count" collection.
+ *
+ * @param {number} count - The new total number of guilds.
+ * @returns {Promise<boolean>} - Returns `true` if the update was successful, else `false`.
+ */
+export async function updateGuildCount(count) {
+    try {
+        const db = await getDB();
+        const collection = db.collection("guild_count");
+
+        const result = await collection.updateOne(
+            { _id: new ObjectId("660f547946c0829673957eba") },
+            {
+                $set: {
+                    num_guilds: count,
+                    last_updated: new Date()
+                }
+            },
+            { upsert: true }
+        );
+
+        if (result.acknowledged) {
+            console.log(`Guild count updated to ${count}.`);
+            return true;
+        } else {
+            console.log(`Failed to update guild count to ${count}.`);
+            return false;
+        }
+    } catch (error) {
+        console.error(`Error updating guild count:`, error.message);
+        return false;
     }
 }
