@@ -8,7 +8,7 @@ import { Long } from "mongodb";
  * A lookup dictionary for mapping queue types to their respective stat calculation functions.
  * To support additional queue types, add new key-value pairs here.
  */
-const CALCULATE_STATS_MAP = {
+export const CALCULATE_STATS_MAP = {
     "ranked_solo": calculateStatsRankedSolo,
     // Example:
     // ranked_flex: calculateStatsRankedFlex,

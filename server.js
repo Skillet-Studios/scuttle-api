@@ -10,6 +10,7 @@ import matches from "./routes/matches.js";
 import stats from "./routes/stats.js";
 import riot from "./routes/riot.js";
 import reports from "./routes/reports.js";
+import rankings from "./routes/rankings.js";
 
 // Import the cron job initializer
 import { initCronJobs } from "./jobs/index.js";
@@ -39,6 +40,7 @@ app.use("/matches", matches);
 app.use("/stats", stats);
 app.use("/riot", riot);
 app.use("/reports", reports);
+app.use("/rankings", rankings);
 
 // Decide your server port
 const PORT = process.env.PORT || 4000;
