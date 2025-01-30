@@ -295,7 +295,7 @@ export async function fetchAllSummonerMatchDataByRange(
 
         console.log(
             `Fetching all matches for ${summonerPuuid} within the last ${range} days` +
-            (queueType ? ` [queue_type=${queueType}]` : "")
+            (queueType ? ` [queueType=${queueType}]` : "")
         );
 
         // Calculate the time range (lower bound in milliseconds)

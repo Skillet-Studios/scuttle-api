@@ -153,7 +153,7 @@ export function makePretty(stats) {
 
 /**
  * Fetches a summoner's stats for the specified queue type within the last `range` days.
- * Only calls `calculateStatsRankedSolo` if queue_type is "ranked_solo".
+ * Only calls `calculateStatsRankedSolo` if queueType is "ranked_solo".
  * Otherwise returns an empty object.
  *
  * @param {string} summonerPuuid - The summoner's PUUID.
@@ -168,7 +168,7 @@ export async function fetchSummonerStatsByDayRange(
 ) {
     try {
         console.log(
-            `Fetching ${range}-day stats for ${summonerPuuid} [queue_type=${queueType}]...`
+            `Fetching ${range}-day stats for ${summonerPuuid} [queueType=${queueType}]...`
         );
 
         // Fetch matches data for the range and queue
@@ -180,7 +180,7 @@ export async function fetchSummonerStatsByDayRange(
 
         const safeMatchesData = matchesData || [];
 
-        // Only compute ranked solo stats if queue_type === "ranked_solo"
+        // Only compute ranked solo stats if queueType === "ranked_solo"
         if (queueType === "ranked_solo") {
             const stats = calculateStatsRankedSolo(summonerPuuid, safeMatchesData);
             return stats;

@@ -5,18 +5,18 @@ const router = Router();
 
 /**
  * GET /matches/:summonerPuuid
- * Example usage: /matches/<PUUID>?range=7&queue_type=ranked_solo
+ * Example usage: /matches/<PUUID>?range=7&queueType=ranked_solo
  * 
  * Returns all match documents for a summoner within the specified day range.
  * If `range` is not specified, defaults to 7 days.
- * If `queue_type` is provided (e.g., "ranked_solo"), only matches of that type are fetched.
+ * If `queueType` is provided (e.g., "ranked_solo"), only matches of that type are fetched.
  */
 router.get("/:summonerPuuid", async (req, res) => {
     try {
         // Extract params and query
         const summonerPuuid = req.params.summonerPuuid;
         const range = parseInt(req.query.range, 10) || 7;
-        const queueType = req.query.queue_type || "ranked_solo"; // e.g., "ranked_solo"
+        const queueType = req.query.queueType || "ranked_solo"; // e.g., "ranked_solo"
 
         const matches = await fetchAllSummonerMatchDataByRange(
             summonerPuuid,
@@ -36,7 +36,7 @@ router.get("/:summonerPuuid", async (req, res) => {
         return res.json({
             success: true,
             range,
-            queue_type: queueType || "all",
+            queueType: queueType || "all",
             summonerPuuid,
             matches,
         });
