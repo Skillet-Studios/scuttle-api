@@ -16,13 +16,13 @@ export const CALCULATE_STATS_MAP = {
 };
 
 /**
- * Fetches a weekly report for a Guild within a certain range and queue type.
+ * Fetches a report for a Guild within a certain range and queue type.
  * The report displays which summoner has the highest value for each stat.
  *
  * @param {string} guildId - The Discord guild ID.
  * @param {number} [range=7] - The number of days to look back.
  * @param {string} [queueType="ranked_solo"] - The queue type to filter matches.
- * @returns {Promise<Array<Object>|null>} - Returns the report array or null if no summoners/guild found.
+ * @returns {Promise<Object|null>} - Returns the report object or null if no summoners/guild found.
  */
 export async function fetchReportByDayRange(guildId, range = 7, queueType = "ranked_solo") {
     try {
@@ -82,14 +82,16 @@ export async function fetchReportByDayRange(guildId, range = 7, queueType = "ran
             }
         }
 
-        // Construct the final report array
-        const result = keys.map(key => ({
-            Key: key,
-            "Max Value": maxValues[key].value,
-            Name: maxValues[key].Name,
-        }));
+        // Construct the final report object
+        const result = {};
+        for (const key of keys) {
+            result[key] = {
+                "Max Value": maxValues[key].value,
+                "Name": maxValues[key].Name
+            };
+        }
 
-        console.log(`Finished fetching weekly report for Guild: ${guildName}. Compared stats of ${summoners.length} summoners.`);
+        console.log(`Finished fetching ${range}-day report for Guild: ${guildName}. Compared stats of ${summoners.length} summoners.`);
         return result;
     } catch (error) {
         console.error(`Error fetching report for Guild '${guildId}':`, error.message);
