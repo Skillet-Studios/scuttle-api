@@ -1,5 +1,6 @@
 import { getDB } from "../utils/db.js";
 import { Long } from "mongodb";
+import { fetchSummonerPuuidByRiotId, getSummonerRegion } from "./riot.js";
 
 /**
  * Gets the total number of summoners across all guilds.
@@ -126,5 +127,76 @@ export async function checkIfCachedWithinRange(summoner, range = 1) {
     } catch (error) {
         console.error("Error checking cached timestamp range:", error);
         throw new Error("Database query failed");
+    }
+}
+
+/**
+ * Adds a summoner to a specific Guild.
+ *
+ * - Validates the Riot ID format and existence.
+ * - Retrieves the summoner's PUUID and region.
+ * - Inserts the summoner into the `summoners` array of the specified guild.
+ *
+ * @param {string} summonerRiotId - The summoner's Riot ID (e.g., "GameName #Tag").
+ * @param {string} guildId - The Discord guild ID to which the summoner should be added.
+ * @returns {Promise<boolean>} - Returns `true` if the summoner was successfully added, else `false`.
+ */
+export async function addSummoner(summonerRiotId, guildId) {
+    try {
+        // Fetch the PUUID using the Riot ID
+        const puuid = await fetchSummonerPuuidByRiotId(summonerRiotId);
+        if (!puuid) {
+            console.log(
+                `Failed to add summoner ${summonerRiotId} to database. Make sure this is a real Riot account.`
+            );
+            return false;
+        }
+
+        // Determine the summoner's region
+        const region = await getSummonerRegion(puuid);
+        if (!region) {
+            console.log(
+                `Failed to determine region for summoner '${summonerRiotId}' with PUUID '${puuid}'.`
+            );
+            return false;
+        }
+
+        const db = await getDB();
+        const collection = db.collection("discord_servers");
+
+        // Prepare the summoner object to be added
+        const summonerData = {
+            name: summonerRiotId,
+            puuid: puuid,
+            region: region,
+        };
+
+        // Update the guild document by adding the summoner to the summoners array
+        const result = await collection.updateOne(
+            { guild_id: Long.fromString(guildId) },
+            { $addToSet: { summoners: summonerData } },
+            { upsert: true } // Creates a new document if one doesn't exist
+        );
+
+        if (result.acknowledged) {
+            if (result.upsertedId) {
+                console.log(
+                    `Inserted a new guild document and added summoner '${summonerRiotId}' to Guild with ID ${guildId}.`
+                );
+            } else {
+                console.log(
+                    `Successfully added summoner '${summonerRiotId}' to Guild with ID ${guildId}.`
+                );
+            }
+            return true;
+        } else {
+            console.log(
+                `Failed to insert summoner '${summonerRiotId}' into Guild with ID ${guildId}.`
+            );
+            return false;
+        }
+    } catch (error) {
+        console.error(`Error adding summoner '${summonerRiotId}' to Guild '${guildId}':`, error.message);
+        return false;
     }
 }

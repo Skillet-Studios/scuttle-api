@@ -4,6 +4,7 @@ import {
     getSummonersByGuildId,
     updateCachedTimestamp,
     checkIfCachedWithinRange,
+    addSummoner
 } from "../models/summoners.js";
 
 const router = Router();
@@ -100,6 +101,47 @@ router.get("/cache/:summonerId", async (req, res) => {
         res.status(500).json({
             success: false,
             message: "Failed to check cached timestamp. Please try again later.",
+        });
+    }
+});
+
+/**
+ * POST /summoners
+ * Expects JSON body: { "summonerRiotId": "GameName #Tag", "guildId": "123456789012345678" }
+ *
+ * Adds a summoner to a specific guild.
+ */
+router.post("/", async (req, res) => {
+    try {
+        const { summonerRiotId, guildId } = req.body;
+
+        // Validate input
+        if (!summonerRiotId || !guildId) {
+            return res.status(400).json({
+                success: false,
+                message: "Missing required fields: summonerRiotId and guildId.",
+            });
+        }
+
+        // Call the addSummoner function
+        const success = await addSummoner(summonerRiotId, guildId);
+
+        if (success) {
+            return res.status(200).json({
+                success: true,
+                message: `Summoner '${summonerRiotId}' was successfully added to Guild '${guildId}'.`,
+            });
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: `Failed to add summoner '${summonerRiotId}' to Guild '${guildId}'.`,
+            });
+        }
+    } catch (error) {
+        console.error("Error with POST /summoners/add", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to add summoner to guild. Please try again later.",
         });
     }
 });
