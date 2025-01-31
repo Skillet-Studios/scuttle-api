@@ -1,4 +1,5 @@
 import axios from "axios";
+import chalk from "chalk"; // Import chalk for colored console logs
 import { getDB } from "../utils/db.js";
 import {
     getSummonersByGuildId,
@@ -91,40 +92,49 @@ export async function cacheMatchData(guilds) {
         const db = await getDB();
         const matchCollection = db.collection("cached_match_data");
 
-        const summonersChecked = [];
+        const summonersChecked = new Set();
         let totalMatchesCached = 0;
         const jobStartTime = new Date();
 
-        console.log(`\nStarting cache process for up to 30 days of data...`);
+        console.log(chalk.green.bold("\n=============================="));
+        console.log(chalk.green.bold("🚀 Starting Match Data Caching"));
+        console.log(chalk.green.bold("==============================\n"));
 
         for (const guild of guilds) {
-            // Fetch summoners for this guild
+            console.log(
+                chalk.blue(
+                    `🔹 Processing Guild: ${guild.name || "Unknown"} (${
+                        guild.guild_id
+                    })`
+                )
+            );
+
             const summoners = await getSummonersByGuildId(guild.guild_id);
 
-            // If no summoners, skip
             if (!summoners || summoners.length === 0) {
                 console.log(
-                    `Guild "${
-                        guild.name || "Unknown"
-                    }" has no summoners. Skipping.`
+                    chalk.yellow(
+                        `⚠️ No summoners found for this guild. Skipping.`
+                    )
                 );
                 continue;
             }
 
             for (const summoner of summoners) {
-                // Avoid processing the same summoner multiple times
-                if (summonersChecked.includes(summoner.puuid)) {
+                if (summonersChecked.has(summoner.puuid)) {
                     console.log(
-                        `Already processed summoner "${summoner.name}". Skipping.`
+                        chalk.gray(
+                            `🔄 Skipping already processed summoner: ${summoner.name}`
+                        )
                     );
                     continue;
                 }
 
                 let matchesCached = 0;
                 let daysFetched = 0;
-                let daysToFetchMax = 30; // default: 30 days
+                let daysToFetchMax = 30;
 
-                // Check if summoner’s data was cached within the last day
+                // Check if summoner’s data was recently cached
                 const cachedRecently = await checkIfCachedWithinRange(
                     summoner,
                     1
@@ -134,52 +144,54 @@ export async function cacheMatchData(guilds) {
                 }
 
                 const summonerPuuid = summoner.puuid;
-                const region = summoner.region ?? "na1"; // fallback if region missing
+                const region = summoner.region ?? "na1";
                 const area = getAreaFromRegion(region) || "americas";
 
-                // Fetch match data in 5-day increments
+                console.log(
+                    chalk.cyan(
+                        `\n📌 Fetching Matches for Summoner: ${
+                            summoner.name
+                        } (${region.toUpperCase()})`
+                    )
+                );
+
                 while (daysFetched < daysToFetchMax) {
-                    // e.g., 30 days => chunked by 5 => 6 iterations
                     const daysToFetch = Math.min(
                         5,
                         daysToFetchMax - daysFetched
                     );
-
-                    // Calculate time window [startTime, endTime)
                     const endTime = new Date();
                     endTime.setDate(endTime.getDate() - daysFetched);
                     const startTime = new Date(endTime);
                     startTime.setDate(startTime.getDate() - daysToFetch);
 
-                    const endTimestamp = Math.floor(endTime.getTime() / 1000);
                     const startTimestamp = Math.floor(
                         startTime.getTime() / 1000
                     );
+                    const endTimestamp = Math.floor(endTime.getTime() / 1000);
 
                     console.log(
-                        `\nFetching match IDs for summoner "${
-                            summoner.name
-                        }" from ${startTime.toDateString()} to ${endTime.toDateString()}...`
+                        chalk.magenta(
+                            `🕒 Date Range: ${startTime.toDateString()} → ${endTime.toDateString()}`
+                        )
                     );
 
-                    // Construct Riot API URL for match IDs
                     const matchIdsUrl = `https://${area}.api.riotgames.com/lol/match/v5/matches/by-puuid/${summonerPuuid}/ids?startTime=${startTimestamp}&endTime=${endTimestamp}&queueId=420&start=0&count=100&api_key=${process.env.RIOT_API_KEY}`;
 
-                    // Fetch match IDs with Axios
                     let matchIds = [];
                     try {
                         const response = await axios.get(matchIdsUrl);
-                        matchIds = response.data; // should be an array of match IDs
+                        matchIds = response.data;
                     } catch (err) {
                         console.error(
-                            `Error fetching match IDs: ${err.message}`
+                            chalk.red(
+                                `❌ Error fetching match IDs: ${err.message}`
+                            )
                         );
-                        // If an error occurs, skip this chunk (continue to next iteration)
                         daysFetched += daysToFetch;
                         continue;
                     }
 
-                    // Find which match IDs are already cached
                     const existingDocs = await matchCollection
                         .find({
                             "metadata.matchId": { $in: matchIds },
@@ -190,16 +202,21 @@ export async function cacheMatchData(guilds) {
                     const existingIds = existingDocs.map(
                         (doc) => doc.metadata.matchId
                     );
-
-                    // Filter out match IDs that we already have
                     const newMatchIds = matchIds.filter(
                         (matchId) => !existingIds.includes(matchId)
                     );
 
-                    console.log(`- Already cached: ${existingIds}`);
-                    console.log(`- Needs caching: ${newMatchIds}`);
+                    console.log(
+                        chalk.yellow(
+                            `📊 Already Cached: ${existingIds.length} matches`
+                        )
+                    );
+                    console.log(
+                        chalk.green(
+                            `🆕 New Matches to Cache: ${newMatchIds.length} matches`
+                        )
+                    );
 
-                    // Fetch & insert new matches
                     for (const matchId of newMatchIds) {
                         const matchUrl = `https://${area}.api.riotgames.com/lol/match/v5/matches/${matchId}?api_key=${process.env.RIOT_API_KEY}`;
 
@@ -209,9 +226,10 @@ export async function cacheMatchData(guilds) {
                             singleMatchData = response.data;
                         } catch (err) {
                             console.error(
-                                `Error fetching match ${matchId}: ${err.message}`
+                                chalk.red(
+                                    `❌ Error fetching match ${matchId}: ${err.message}`
+                                )
                             );
-                            // Skip this match if there's an error
                             continue;
                         }
 
@@ -228,33 +246,38 @@ export async function cacheMatchData(guilds) {
                     }
 
                     daysFetched += daysToFetch;
-                } // end while
+                }
 
-                // Mark this summoner as processed, then update "last_cached"
-                summonersChecked.push(summoner.puuid);
+                summonersChecked.add(summoner.puuid);
                 await updateCachedTimestamp(summoner);
 
                 console.log(
-                    `${matchesCached} match(es) cached for summoner "${summoner.name}".`
+                    chalk.green(
+                        `✅ Cached ${matchesCached} matches for ${summoner.name}\n`
+                    )
                 );
-            } // end summoners loop
-        } // end guilds loop
+            }
+        }
 
-        // Print summary
-        console.log(`\n${totalMatchesCached} total new matches cached.`);
+        console.log(chalk.green.bold("\n=============================="));
+        console.log(
+            chalk.green.bold(`🏆 Total Matches Cached: ${totalMatchesCached}`)
+        );
+
         const jobEndTime = new Date();
         const elapsedMs = jobEndTime - jobStartTime;
-
-        // Format elapsed time
         const hours = Math.floor(elapsedMs / 3600000);
         const minutes = Math.floor((elapsedMs % 3600000) / 60000);
         const seconds = Math.floor((elapsedMs % 60000) / 1000);
 
         console.log(
-            `Done caching match data. Elapsed time: ${hours}h ${minutes}m ${seconds}s.\n`
+            chalk.green.bold(
+                `⏳ Elapsed Time: ${hours}h ${minutes}m ${seconds}s`
+            )
         );
+        console.log(chalk.green.bold("==============================\n"));
     } catch (error) {
-        console.error("Error in cacheMatchData:", error);
+        console.error(chalk.red("🚨 Error in cacheMatchData:"), error);
         throw error;
     }
 }
