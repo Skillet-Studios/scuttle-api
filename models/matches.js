@@ -4,6 +4,7 @@ import {
     getSummonersByGuildId,
     checkIfCachedWithinRange,
     updateCachedTimestamp,
+    getUniqueSummoners,
 } from "./summoners.js";
 import { processMatchData } from "../utils/processing.js";
 import { getAreaFromRegion } from "../utils/processing.js";
@@ -39,15 +40,15 @@ export const QUEUE_ID_MAP = {
     draft_summoners_rift_6: 400, // old references
 
     // Modern Summoner's Rift (400–499 range)
-    normal_draft: 400,      // 5v5 Draft Pick
-    ranked_solo: 420,       // 5v5 Ranked Solo
-    normal_blind: 430,      // 5v5 Blind Pick
-    ranked_flex: 440,       // 5v5 Ranked Flex
-    aram: 450,              // ARAM on Howling Abyss
+    normal_draft: 400, // 5v5 Draft Pick
+    ranked_solo: 420, // 5v5 Ranked Solo
+    normal_blind: 430, // 5v5 Blind Pick
+    ranked_flex: 440, // 5v5 Ranked Flex
+    aram: 450, // ARAM on Howling Abyss
     blood_hunt_assassin: 600,
     dark_star_singularity: 610,
-    clash: 700,             // Team-based competition
-    arurf: 900,             // ARURF on Summoner’s Rift
+    clash: 700, // Team-based competition
+    arurf: 900, // ARURF on Summoner’s Rift
 
     // Co-op vs AI (Intro/Beginner/Intermediate)
     coop_vs_ai_intro: 830,
@@ -69,7 +70,6 @@ export const QUEUE_ID_MAP = {
     nexus_blitz: 1200,
     ultimate_spellbook: 1400,
 };
-
 
 /**
  * Caches the last 30 days worth of ranked solo queue (queue=420) match data
@@ -104,7 +104,9 @@ export async function cacheMatchData(guilds) {
             // If no summoners, skip
             if (!summoners || summoners.length === 0) {
                 console.log(
-                    `Guild "${guild.name || "Unknown"}" has no summoners. Skipping.`
+                    `Guild "${
+                        guild.name || "Unknown"
+                    }" has no summoners. Skipping.`
                 );
                 continue;
             }
@@ -123,7 +125,10 @@ export async function cacheMatchData(guilds) {
                 let daysToFetchMax = 30; // default: 30 days
 
                 // Check if summoner’s data was cached within the last day
-                const cachedRecently = await checkIfCachedWithinRange(summoner, 1);
+                const cachedRecently = await checkIfCachedWithinRange(
+                    summoner,
+                    1
+                );
                 if (cachedRecently) {
                     daysToFetchMax = 1;
                 }
@@ -135,7 +140,10 @@ export async function cacheMatchData(guilds) {
                 // Fetch match data in 5-day increments
                 while (daysFetched < daysToFetchMax) {
                     // e.g., 30 days => chunked by 5 => 6 iterations
-                    const daysToFetch = Math.min(5, daysToFetchMax - daysFetched);
+                    const daysToFetch = Math.min(
+                        5,
+                        daysToFetchMax - daysFetched
+                    );
 
                     // Calculate time window [startTime, endTime)
                     const endTime = new Date();
@@ -144,10 +152,14 @@ export async function cacheMatchData(guilds) {
                     startTime.setDate(startTime.getDate() - daysToFetch);
 
                     const endTimestamp = Math.floor(endTime.getTime() / 1000);
-                    const startTimestamp = Math.floor(startTime.getTime() / 1000);
+                    const startTimestamp = Math.floor(
+                        startTime.getTime() / 1000
+                    );
 
                     console.log(
-                        `\nFetching match IDs for summoner "${summoner.name}" from ${startTime.toDateString()} to ${endTime.toDateString()}...`
+                        `\nFetching match IDs for summoner "${
+                            summoner.name
+                        }" from ${startTime.toDateString()} to ${endTime.toDateString()}...`
                     );
 
                     // Construct Riot API URL for match IDs
@@ -159,7 +171,9 @@ export async function cacheMatchData(guilds) {
                         const response = await axios.get(matchIdsUrl);
                         matchIds = response.data; // should be an array of match IDs
                     } catch (err) {
-                        console.error(`Error fetching match IDs: ${err.message}`);
+                        console.error(
+                            `Error fetching match IDs: ${err.message}`
+                        );
                         // If an error occurs, skip this chunk (continue to next iteration)
                         daysFetched += daysToFetch;
                         continue;
@@ -173,7 +187,9 @@ export async function cacheMatchData(guilds) {
                         })
                         .toArray();
 
-                    const existingIds = existingDocs.map((doc) => doc.metadata.matchId);
+                    const existingIds = existingDocs.map(
+                        (doc) => doc.metadata.matchId
+                    );
 
                     // Filter out match IDs that we already have
                     const newMatchIds = matchIds.filter(
@@ -192,7 +208,9 @@ export async function cacheMatchData(guilds) {
                             const response = await axios.get(matchUrl);
                             singleMatchData = response.data;
                         } catch (err) {
-                            console.error(`Error fetching match ${matchId}: ${err.message}`);
+                            console.error(
+                                `Error fetching match ${matchId}: ${err.message}`
+                            );
                             // Skip this match if there's an error
                             continue;
                         }
@@ -295,7 +313,7 @@ export async function fetchAllSummonerMatchDataByRange(
 
         console.log(
             `Fetching all matches for ${summonerPuuid} within the last ${range} days` +
-            (queueType ? ` [queueType=${queueType}]` : "")
+                (queueType ? ` [queueType=${queueType}]` : "")
         );
 
         // Calculate the time range (lower bound in milliseconds)
@@ -355,7 +373,7 @@ export async function fetchAllSummonerMatchDataSinceDate(
 
         console.log(
             `Fetching all matches for ${summonerPuuid} since ${startDate.toISOString()}` +
-            (queueType ? ` [queueType=${queueType}]` : "")
+                (queueType ? ` [queueType=${queueType}]` : "")
         );
 
         // Convert startDate to epoch milliseconds
@@ -388,7 +406,64 @@ export async function fetchAllSummonerMatchDataSinceDate(
         }
         return documents;
     } catch (error) {
-        console.error(`Error fetching summoner matches since date: ${error.message}`);
+        console.error(
+            `Error fetching summoner matches since date: ${error.message}`
+        );
+        throw error;
+    }
+}
+
+/**
+ * Deletes matches from "cached_match_data" for summoners who are no longer part of any guild.
+ *
+ * - Retrieves all unique summoners still present in guilds using `getAllUniqueSummoners()`.
+ * - Identifies match documents where `summoner_puuid` does not exist in the active summoner list.
+ * - Deletes only those matches that belong to removed summoners.
+ *
+ * @returns {Promise<number>} The number of deleted matches.
+ */
+export async function deleteMatchesForRemovedSummoners() {
+    try {
+        const db = await getDB();
+        const matchCollection = db.collection("cached_match_data");
+
+        console.log("🔍 Fetching all active summoners from guilds...");
+        const activeSummoners = await getUniqueSummoners();
+        const activePuuids = new Set(activeSummoners.map((s) => s.puuid));
+
+        console.log("🔍 Identifying matches belonging to removed summoners...");
+        const matchesToDelete = await matchCollection
+            .find(
+                { summoner_puuid: { $nin: [...activePuuids] } },
+                { projection: { _id: 1 } }
+            )
+            .toArray();
+
+        if (matchesToDelete.length === 0) {
+            console.log(
+                "✅ No orphaned match data found. No deletions necessary."
+            );
+            return 0;
+        }
+
+        console.log(
+            `🗑️ Deleting ${matchesToDelete.length} matches with removed summoners...`
+        );
+
+        // Perform batch deletion
+        const result = await matchCollection.deleteMany({
+            summoner_puuid: { $nin: [...activePuuids] },
+        });
+
+        console.log(
+            `✅ Deleted ${result.deletedCount} match(es) for removed summoners.`
+        );
+        return result.deletedCount;
+    } catch (error) {
+        console.error(
+            "❌ Error deleting matches for removed summoners:",
+            error
+        );
         throw error;
     }
 }
