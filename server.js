@@ -1,6 +1,8 @@
 // server.js
 import express from "express";
 import cors from "cors";
+import dotenv from "dotenv";
+import { verifyApiKey } from "./middlewares/auth.js";
 
 // routes
 import guilds from "./routes/guilds.js";
@@ -16,22 +18,27 @@ import topgg from "./routes/topgg.js";
 // Import the cron job initializer
 import { initCronJobs } from "./jobs/index.js";
 
+dotenv.config();
+
 const app = express();
 app.use(express.json());
 
 // Configure CORS
 app.use(
-  cors({
-    credentials: true,
-    origin: [
-      "http://localhost:3000",
-      /\.scuttle\.gg%/,
-      "https://www.scuttle.gg",
-      "https://api.scuttle.gg",
-      "https://scuttle-website-aa38f423d608.herokuapp.com",
-    ],
-  })
+    cors({
+        credentials: true,
+        origin: [
+            "http://localhost:3000",
+            /\.scuttle\.gg%/,
+            "https://www.scuttle.gg",
+            "https://api.scuttle.gg",
+            "https://scuttle-website-aa38f423d608.herokuapp.com",
+        ],
+    })
 );
+
+// Apply API key verification middleware globally
+app.use(verifyApiKey);
 
 // Mount routes
 app.use("/guilds", guilds);
@@ -49,9 +56,6 @@ const PORT = process.env.PORT || 4000;
 
 // Start the server, then initialize cron jobs.
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-
-  // If DB is already connected at this point (or doesn't need manual connect),
-  // can safely init cron jobs here.
-  initCronJobs();
+    console.log(`🚀 Server running on port ${PORT}`);
+    initCronJobs();
 });
