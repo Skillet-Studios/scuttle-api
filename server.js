@@ -14,6 +14,7 @@ import riot from "./routes/riot.js";
 import reports from "./routes/reports.js";
 import rankings from "./routes/rankings.js";
 import topgg from "./routes/topgg.js";
+import hours from "./routes/hours.js";
 
 // Import the cron job initializer
 import { initCronJobs } from "./jobs/index.js";
@@ -50,6 +51,7 @@ app.use("/riot", riot);
 app.use("/reports", reports);
 app.use("/rankings", rankings);
 app.use("/topgg", topgg);
+app.use("/hours", hours);
 
 // Decide your server port
 const PORT = process.env.PORT || 4000;
