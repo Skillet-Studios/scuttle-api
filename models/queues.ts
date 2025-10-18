@@ -15,6 +15,7 @@ export interface QueueStats {
     avgDamagePerMinute: number;
     avgDamageToChampions: number;
     avgEnemyMissingPings: number;
+    avgAssistMePings: number;
     avgControlWardsPlaced: number;
     abilityUses: number;
     scuttleCrabKills: number;
@@ -43,6 +44,7 @@ function calculateRankedSoloStats(matches: RankedSoloMatch[]): QueueStats {
             avgDamagePerMinute: 0,
             avgDamageToChampions: 0,
             avgEnemyMissingPings: 0,
+            avgAssistMePings: 0,
             avgControlWardsPlaced: 0,
             abilityUses: 0,
             scuttleCrabKills: 0,
@@ -71,6 +73,8 @@ function calculateRankedSoloStats(matches: RankedSoloMatch[]): QueueStats {
                 acc.avgDamageToChampions + match.damage_to_champions,
             avgEnemyMissingPings:
                 acc.avgEnemyMissingPings + match.enemy_missing_pings,
+            avgAssistMePings:
+                acc.avgAssistMePings + match.assist_me_pings,
             avgControlWardsPlaced:
                 acc.avgControlWardsPlaced + match.control_wards_placed,
             abilityUses: acc.abilityUses + match.ability_uses,
@@ -92,6 +96,7 @@ function calculateRankedSoloStats(matches: RankedSoloMatch[]): QueueStats {
             avgDamagePerMinute: 0,
             avgDamageToChampions: 0,
             avgEnemyMissingPings: 0,
+            avgAssistMePings: 0,
             avgControlWardsPlaced: 0,
             abilityUses: 0,
             scuttleCrabKills: 0,
@@ -115,6 +120,7 @@ function calculateRankedSoloStats(matches: RankedSoloMatch[]): QueueStats {
         "avgDamagePerMinute",
         "avgDamageToChampions",
         "avgEnemyMissingPings",
+        "avgAssistMePings",
         "avgControlWardsPlaced",
     ];
 

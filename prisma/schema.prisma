@@ -96,6 +96,7 @@ model RankedSoloMatch {
   damage_per_minute      Float
   damage_to_champions    Int
   enemy_missing_pings    Int
+  assist_me_pings        Int
   control_wards_placed   Int
   ability_uses           Int
   scuttle_crab_kills     Int

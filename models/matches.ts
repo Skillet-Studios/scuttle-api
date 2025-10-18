@@ -162,7 +162,8 @@ async function saveMatchData(
             damage_per_minute: challenges.damagePerMinute ?? 0,
             damage_to_champions: participant.totalDamageDealtToChampions,
             enemy_missing_pings: participant.enemyMissingPings,
-            control_wards_placed: participant.controlWardsPlaced,
+            assist_me_pings: participant.assistMePings,
+            control_wards_placed: challenges.controlWardsPlaced,
             ability_uses: challenges.abilityUses ?? 0,
             scuttle_crab_kills: challenges.scuttleCrabKills ?? 0,
             game_surrendered: participant.gameEndedInSurrender,
@@ -243,10 +244,15 @@ export async function cacheMatchData(
         const summoners = await getUniqueSummoners();
         let totalMatches = 0;
 
-        logger.info(`Models > matches > Starting match data caching for ${summoners.length} summoners`);
+        logger.info(
+            `Models > matches > Starting match data caching for ${summoners.length} summoners`
+        );
 
         for (const summoner of summoners) {
-            const matchesCached = await processSummonerMatches(summoner, queueId);
+            const matchesCached = await processSummonerMatches(
+                summoner,
+                queueId
+            );
             totalMatches += matchesCached;
 
             if (matchesCached > 0) {

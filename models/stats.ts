@@ -10,20 +10,21 @@ const PRETTY_KEYS: Record<string, string> = {
     totalMatches: "🎮 Total Matches",
     avgKills: "🔪 Avg. Kills",
     avgDeaths: "💀 Avg. Deaths",
-    avgAssists: "🤝 Avg. Assists",
     avgKDA: "🗡 Avg. KDA",
     avgSoloKills: "🔪 Avg. Solo Kills",
     avgVisionScore: "👁 Avg. Vision Score",
     avgTeamDamagePercentage: "🤝 Avg. Team Damage Percentage",
+    avgAssists: "🤝 Avg. Assists",
     avgKillParticipation: "🤝 Avg. Kill Participation",
     avgGoldPerMinute: "👑 Avg. Gold Per Minute",
     avgDamagePerMinute: "💥 Avg. Damage Per Minute",
     avgDamageToChampions: "💥 Avg. Damage To Champions",
+    avgAssistMePings: "🙃 Avg. Assist Me Pings",
     avgEnemyMissingPings: "🤔 Avg. Enemy Missing Pings",
     avgControlWardsPlaced: "👀 Avg. Control Wards Placed",
     abilityUses: "🖖 Ability Uses",
-    scuttleCrabKills: "🐸 Scuttle Crab Kills",
     gamesSurrendered: "🏳 Games Surrendered",
+    scuttleCrabKills: "🐸 Scuttle Crab Kills",
 };
 
 export function makePretty(stats: Record<string, any>): Record<string, any> {
