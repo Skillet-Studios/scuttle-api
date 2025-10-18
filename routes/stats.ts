@@ -1,81 +1,65 @@
 import { Router, Request, Response } from "express";
-import { fetchSummonerStatsByDayRange, makePretty } from "../models/stats.js";
+import { fetchSummonerStats, makePretty } from "../models/stats.js";
+import { respondWithSuccess, respondWithError } from "../utils/responses.js";
+import { logger } from "../utils/logger.js";
 
 const router = Router();
 
-/**
- * GET /stats/:summonerPuuid
- * Example usage: /stats/<PUUID>?range=7&queueType=ranked_solo
- *
- * Fetches a summoner's stats for all matches played in the last `range` days
- * and for an optional queueType (defaults to "ranked_solo").
- * Returns {} if not "ranked_solo" (based on our logic).
- */
 router.get("/:summonerPuuid", async (req: Request, res: Response) => {
     try {
         const summonerPuuid = req.params.summonerPuuid;
         const range = parseInt(req.query.range as string, 10) || 7;
         const queueType = (req.query.queueType as string) || "ranked_solo";
 
-        const stats = await fetchSummonerStatsByDayRange(
-            summonerPuuid,
-            range,
-            queueType
-        );
+        const stats = await fetchSummonerStats(summonerPuuid, range, queueType);
 
-        return res.json({
-            success: true,
+        if (!stats) {
+            return respondWithError(
+                res,
+                404,
+                `Queue type '${queueType}' not supported or no matches found`
+            );
+        }
+
+        return respondWithSuccess(res, 200, undefined, {
             range,
-            queueType: queueType,
+            queueType,
             summonerPuuid,
             stats,
         });
     } catch (error) {
-        console.error("Error with GET /stats/:summonerPuuid", error);
-        return res.status(500).json({
-            success: false,
-            message: "Failed to fetch summoner stats. Please try again later.",
-        });
+        logger.error("Routes > stats > Error with GET /:summonerPuuid", error);
+        return respondWithError(res, 500, "Failed to fetch summoner stats. Please try again later.");
     }
 });
 
-/**
- * GET /stats/pretty/:summonerPuuid
- * Example usage: /stats/pretty/<PUUID>?range=7&queueType=ranked_solo
- *
- * Same as GET /stats/:summonerPuuid but returns data in a user-friendly
- * format using the `makePretty` method.
- * Defaults queueType to "ranked_solo" if not provided.
- */
 router.get("/pretty/:summonerPuuid", async (req: Request, res: Response) => {
     try {
         const summonerPuuid = req.params.summonerPuuid;
         const range = parseInt(req.query.range as string, 10) || 7;
         const queueType = (req.query.queueType as string) || "ranked_solo";
 
-        // Fetch stats
-        const stats = await fetchSummonerStatsByDayRange(
-            summonerPuuid,
-            range,
-            queueType
-        );
+        const stats = await fetchSummonerStats(summonerPuuid, range, queueType);
 
-        // Convert to a user-friendly format (if it's the ranked_solo stats)
+        if (!stats) {
+            return respondWithError(
+                res,
+                404,
+                `Queue type '${queueType}' not supported or no matches found`
+            );
+        }
+
         const prettyStats = makePretty(stats);
 
-        return res.json({
-            success: true,
+        return respondWithSuccess(res, 200, undefined, {
             range,
-            queueType: queueType,
+            queueType,
             summonerPuuid,
             stats: prettyStats,
         });
     } catch (error) {
-        console.error("Error with GET /stats/pretty/:summonerPuuid", error);
-        return res.status(500).json({
-            success: false,
-            message: "Failed to fetch summoner stats. Please try again later.",
-        });
+        logger.error("Routes > stats > Error with GET /pretty/:summonerPuuid", error);
+        return respondWithError(res, 500, "Failed to fetch summoner stats. Please try again later.");
     }
 });
 

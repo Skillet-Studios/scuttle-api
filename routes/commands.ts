@@ -15,7 +15,7 @@ router.get("/count", async (_req: Request, res: Response) => {
             count: totalCommands,
         });
     } catch (error) {
-        logger.error("Error with GET /commands/count", error);
+        logger.error("Routes > commands > Error with GET /count", error);
         return respondWithError(
             res,
             500,
@@ -30,14 +30,10 @@ router.post("/log", async (req: Request, res: Response) => {
             req.body;
 
         if (!command) {
-            return respondWithError(
-                res,
-                400,
-                "Missing required field: command"
-            );
+            return respondWithError(res, 400, "Missing required field: command");
         }
 
-        const success = await logCommandInvocation({
+        await logCommandInvocation({
             command,
             discordUserId,
             discordUsername,
@@ -45,21 +41,9 @@ router.post("/log", async (req: Request, res: Response) => {
             guildName,
         });
 
-        if (success) {
-            return respondWithSuccess(
-                res,
-                200,
-                `Command invocation logged: ${command}`
-            );
-        } else {
-            return respondWithError(
-                res,
-                500,
-                `Failed to log command invocation: ${command}`
-            );
-        }
+        return respondWithSuccess(res, 200, `Command invocation logged: ${command}`);
     } catch (error) {
-        logger.error("Error with POST /commands/log", error);
+        logger.error("Routes > commands > Error with POST /log", error);
         return respondWithError(
             res,
             500,

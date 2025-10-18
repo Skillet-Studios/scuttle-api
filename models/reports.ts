@@ -1,37 +1,35 @@
 import { getGuildById } from "./guilds.js";
 import { getSummonersByGuildId } from "./summoners.js";
-import prisma from "../utils/prisma.js";
-import { calculateStatsRankedSolo, SummonerStats } from "./stats.js";
-import { RankedSoloMatch } from "@prisma/client";
-
-/**
- * A lookup dictionary for mapping queue types to their respective stat calculation functions.
- * To support additional queue types, add new key-value pairs here.
- */
-export const CALCULATE_STATS_MAP: Record<
-    string,
-    (puuid: string, matches: RankedSoloMatch[]) => SummonerStats
-> = {
-    ranked_solo: calculateStatsRankedSolo,
-    // Example:
-    // ranked_flex: calculateStatsRankedFlex,
-    // normal_blind: calculateStatsNormalBlind,
-};
+import { getQueueHandler } from "./queues.js";
+import { fetchSummonerStatsWithName } from "./stats.js";
+import { logger } from "../utils/logger.js";
 
 interface ReportStat {
     "Max Value": number;
     Name: string;
 }
 
-/**
- * Fetches a report for a Guild within a certain range and queue type.
- * The report displays which summoner has the highest value for each stat.
- *
- * @param guildId - The Discord guild ID.
- * @param range - The number of days to look back. Defaults to 7.
- * @param queueType - The queue type to filter matches. Defaults to "ranked_solo".
- * @returns Returns the report object or null if no summoners/guild found.
- */
+function findMaxStats(
+    summonerStats: ({ name: string; stats: Record<string, number> } | null)[]
+): Record<string, ReportStat> {
+    const result: Record<string, ReportStat> = {};
+
+    summonerStats.forEach((summoner) => {
+        if (!summoner) return;
+
+        for (const [statName, value] of Object.entries(summoner.stats)) {
+            if (!result[statName] || value > result[statName]["Max Value"]) {
+                result[statName] = {
+                    "Max Value": value,
+                    Name: summoner.name,
+                };
+            }
+        }
+    });
+
+    return result;
+}
+
 export async function fetchReportByDayRange(
     guildId: string,
     range: number = 7,
@@ -39,97 +37,46 @@ export async function fetchReportByDayRange(
 ): Promise<Record<string, ReportStat> | null> {
     try {
         const guildData = await getGuildById(guildId);
-        const guildName = guildData?.name || "None";
-        console.log(
-            `Fetching ${range}-day report for Guild: ${guildName} [Queue Type: ${queueType}]...`
-        );
-
         if (!guildData) {
-            console.log(`Guild ${guildId} does not exist in the database.`);
+            logger.warn(`Models > reports > Guild ${guildId} not found`);
             return null;
         }
 
         const summoners = await getSummonersByGuildId(guildId);
-        if (!summoners || summoners.length === 0) {
-            console.log(`No summoners found for guild with ID ${guildId}.`);
+        if (!summoners?.length) {
+            logger.warn(
+                `Models > reports > No summoners found for guild ${guildId}`
+            );
             return null;
         }
 
-        const calculateStats = CALCULATE_STATS_MAP[queueType];
-        if (!calculateStats) {
-            console.log(`Queue type '${queueType}' is not supported.`);
+        const handler = getQueueHandler(queueType);
+        if (!handler) {
+            logger.warn(
+                `Models > reports > Queue type '${queueType}' not supported`
+            );
             return null;
         }
 
-        // Calculate the time range (lower bound)
-        const now = new Date();
-        const lowerBound = new Date();
-        lowerBound.setDate(now.getDate() - range);
+        const startDateEpoch = Date.now() - range * 24 * 60 * 60 * 1000;
 
-        const aggStats: Array<SummonerStats & { Name: string }> = [];
-        for (const summoner of summoners) {
-            const puuid = summoner.puuid;
-
-            // Fetch matches from RankedSoloMatch table
-            const matchesData = await prisma.rankedSoloMatch.findMany({
-                where: {
-                    summoner_puuid: puuid,
-                    game_start_timestamp: {
-                        gte: BigInt(lowerBound.getTime()),
-                    },
-                },
-            });
-
-            const stats = calculateStats(puuid, matchesData);
-            const weeklyStatsWithName = { ...stats, Name: summoner.name };
-            aggStats.push(weeklyStatsWithName);
-        }
-
-        if (aggStats.length === 0) {
-            console.log(`No valid match data found for summoners in guild ${guildId}.`);
-            return null;
-        }
-
-        // Extract stat keys excluding 'Name'
-        const keys = Object.keys(aggStats[0]).filter((key) => key !== "Name");
-
-        // Initialize max_values dictionary
-        const maxValues: Record<string, { value: number; Name: string }> = {};
-        for (const key of keys) {
-            maxValues[key] = { value: -Infinity, Name: "" };
-        }
-
-        // Determine the maximum value and corresponding summoner for each stat
-        for (const item of aggStats) {
-            for (const key of keys) {
-                const typedKey = key as keyof SummonerStats;
-                if (item[typedKey] > maxValues[key].value) {
-                    maxValues[key] = {
-                        value: item[typedKey] as number,
-                        Name: item.Name,
-                    };
-                }
-            }
-        }
-
-        // Construct the final report object
-        const result: Record<string, ReportStat> = {};
-        for (const key of keys) {
-            result[key] = {
-                "Max Value": maxValues[key].value,
-                Name: maxValues[key].Name,
-            };
-        }
-
-        console.log(
-            `Finished fetching ${range}-day report for Guild: ${guildName}. Compared stats of ${summoners.length} summoners.`
+        const summonerStatsPromises = summoners.map((summoner) =>
+            fetchSummonerStatsWithName(summoner, startDateEpoch, queueType)
         );
-        return result;
+
+        const summonerStats = await Promise.all(summonerStatsPromises);
+
+        if (summonerStats.every((s) => s === null)) {
+            logger.warn(`Models > reports > No valid stats found for guild ${guildId}`);
+            return null;
+        }
+
+        return findMaxStats(summonerStats);
     } catch (error) {
-        console.error(
-            `Error fetching report for Guild '${guildId}':`,
-            error instanceof Error ? error.message : error
+        logger.error(
+            `Models > reports > Error fetching report for guild ${guildId}`,
+            error
         );
-        throw new Error("Failed to fetch report");
+        throw error;
     }
 }

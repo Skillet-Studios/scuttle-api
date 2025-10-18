@@ -1,70 +1,57 @@
 import prisma from "../utils/prisma.js";
+import { logger } from "../utils/logger.js";
 
-/**
- * Gets the total number of guilds from the database.
- *
- * @returns The total count of guilds.
- */
+interface SerializedGuild {
+    id: string;
+    guild_id: string;
+    name: string;
+    main_channel_id: string | null;
+    created_at: Date;
+    updated_at: Date;
+}
+
+function serializeGuild(guild: any): SerializedGuild {
+    return {
+        ...guild,
+        guild_id: guild.guild_id.toString(),
+        main_channel_id: guild.main_channel_id?.toString() ?? null,
+    };
+}
+
 export async function getNumGuilds(): Promise<number> {
     try {
-        const count = await prisma.guild.count();
-        return count;
+        return await prisma.guild.count();
     } catch (error) {
-        console.error("Error fetching total guilds:", error);
+        logger.error("Models > guilds > Error fetching total guilds", error);
         throw new Error("Database query failed");
     }
 }
 
-/**
- * Retrieves all guild documents from the database.
- *
- * @returns An array of guild documents with BigInt fields converted to strings.
- */
-export async function getAllGuilds() {
+export async function getAllGuilds(): Promise<SerializedGuild[]> {
     try {
         const guilds = await prisma.guild.findMany({
-            orderBy: {
-                created_at: "desc",
-            },
+            orderBy: { created_at: "desc" },
         });
-
-        // Convert BigInt to string for JSON serialization
-        return guilds.map((guild) => ({
-            ...guild,
-            guild_id: guild.guild_id.toString(),
-            main_channel_id: guild.main_channel_id
-                ? guild.main_channel_id.toString()
-                : null,
-        }));
+        return guilds.map(serializeGuild);
     } catch (error) {
-        console.error("Error fetching all guilds:", error);
+        logger.error("Models > guilds > Error fetching all guilds", error);
         throw new Error("Database query failed");
     }
 }
 
-/**
- * Adds a new Guild to the database.
- *
- * @param guildName - The name of the guild.
- * @param guildId - The Discord guild ID (as a string).
- * @returns Returns `true` if the guild was successfully added, else `false`.
- */
 export async function addGuild(
     guildName: string,
     guildId: string
-): Promise<boolean> {
+): Promise<void> {
     try {
-        // Check if guild_id already exists
         const existingGuild = await prisma.guild.findUnique({
             where: { guild_id: BigInt(guildId) },
         });
 
         if (existingGuild) {
-            console.log(`A guild with the guild_id '${guildId}' already exists.`);
-            return false;
+            throw new Error(`Guild with ID '${guildId}' already exists`);
         }
 
-        // Create the new guild
         const guild = await prisma.guild.create({
             data: {
                 name: guildName,
@@ -72,62 +59,30 @@ export async function addGuild(
             },
         });
 
-        console.log(
-            `Guild '${guildName}' was successfully inserted with id: ${guild.id}`
-        );
-        return true;
+        logger.info(`Models > guilds > Guild '${guildName}' created with id: ${guild.id}`);
     } catch (error) {
-        console.error(
-            `Error adding guild '${guildName}' with ID '${guildId}':`,
-            error instanceof Error ? error.message : error
-        );
-        return false;
+        logger.error(`Models > guilds > Error adding guild '${guildName}' (${guildId})`, error);
+        throw error;
     }
 }
 
-/**
- * Sets the main channel for a specific Guild.
- *
- * The main channel is where automatic messages will be sent.
- *
- * @param guildId - The Discord guild ID (as a string).
- * @param channelId - The Discord channel ID to set as the main channel.
- * @returns Returns `true` if the main channel was successfully set, else `false`.
- */
 export async function setMainChannel(
     guildId: string,
     channelId: string
-): Promise<boolean> {
+): Promise<void> {
     try {
         await prisma.guild.update({
             where: { guild_id: BigInt(guildId) },
             data: { main_channel_id: BigInt(channelId) },
         });
 
-        console.log(
-            `Main channel for Guild: ${guildId} updated to ${channelId}.`
-        );
-        return true;
-    } catch (error: any) {
-        if (error.code === "P2025") {
-            // Record not found
-            console.log(`Guild with ID ${guildId} not found.`);
-            return false;
-        }
-        console.error(
-            `Error setting main channel for Guild '${guildId}':`,
-            error.message
-        );
-        return false;
+        logger.info(`Models > guilds > Main channel for guild ${guildId} set to ${channelId}`);
+    } catch (error) {
+        logger.error(`Models > guilds > Error setting main channel for guild '${guildId}'`, error);
+        throw error;
     }
 }
 
-/**
- * Retrieves the main_channel_id for a specific Guild.
- *
- * @param guildId - The Discord guild ID (as a string).
- * @returns Returns the main_channel_id as a string if found, else null.
- */
 export async function getMainChannel(guildId: string): Promise<string | null> {
     try {
         const guild = await prisma.guild.findUnique({
@@ -135,77 +90,34 @@ export async function getMainChannel(guildId: string): Promise<string | null> {
             select: { main_channel_id: true },
         });
 
-        if (guild && guild.main_channel_id) {
-            return guild.main_channel_id.toString();
+        if (!guild?.main_channel_id) {
+            logger.debug(`Models > guilds > Guild ${guildId} not found or has no main channel`);
+            return null;
         }
 
-        console.log(`Guild with ID ${guildId} not found or has no main channel.`);
-        return null;
+        return guild.main_channel_id.toString();
     } catch (error) {
-        console.error(
-            `Error retrieving main channel for Guild '${guildId}':`,
-            error instanceof Error ? error.message : error
-        );
+        logger.error(`Models > guilds > Error retrieving main channel for guild '${guildId}'`, error);
         throw new Error("Database query failed");
     }
 }
 
-/**
- * Updates the guild count (kept for backward compatibility).
- * Note: With Prisma, we don't need a separate guild_count table.
- * This function is kept for backward compatibility but uses the dynamic count.
- *
- * @param count - The new total number of guilds (ignored in Prisma version).
- * @returns Returns `true` always (no separate count table needed).
- */
-export async function updateGuildCount(_count: number): Promise<boolean> {
-    try {
-        // With Prisma, we don't need a separate guild_count table
-        // We can always get the count with prisma.guild.count()
-        const actualCount = await getNumGuilds();
-        console.log(
-            `Guild count is dynamically calculated. Current count: ${actualCount}`
-        );
-        return true;
-    } catch (error) {
-        console.error(
-            `Error in updateGuildCount:`,
-            error instanceof Error ? error.message : error
-        );
-        return false;
-    }
-}
-
-/**
- * Retrieves guild data by its Discord guild ID.
- *
- * @param guildId - The Discord guild ID as a string.
- * @returns Returns the guild document if found, else null.
- */
-export async function getGuildById(guildId: string) {
+export async function getGuildById(
+    guildId: string
+): Promise<SerializedGuild | null> {
     try {
         const guild = await prisma.guild.findUnique({
             where: { guild_id: BigInt(guildId) },
         });
 
         if (!guild) {
-            console.log(`Guild with ID ${guildId} not found.`);
+            logger.debug(`Models > guilds > Guild with ID ${guildId} not found`);
             return null;
         }
 
-        // Convert BigInt to string for JSON serialization
-        return {
-            ...guild,
-            guild_id: guild.guild_id.toString(),
-            main_channel_id: guild.main_channel_id
-                ? guild.main_channel_id.toString()
-                : null,
-        };
+        return serializeGuild(guild);
     } catch (error) {
-        console.error(
-            `Error retrieving guild with ID '${guildId}':`,
-            error instanceof Error ? error.message : error
-        );
+        logger.error(`Models > guilds > Error retrieving guild '${guildId}'`, error);
         throw new Error("Database query failed");
     }
 }

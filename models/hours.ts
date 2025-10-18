@@ -1,87 +1,65 @@
 import prisma from "../utils/prisma.js";
+import { logger } from "../utils/logger.js";
 
-/**
- * Fetches total playtime (in hours) and total matches played for a summoner over a specified time range.
- *
- * @param summonerPuuid - The summoner's PUUID.
- * @param range - The number of days to look back (e.g., 1 for daily, 7 for weekly).
- * @param queueType - (Optional) The queue type (e.g., "ranked_solo", "aram"). Defaults to "ranked_solo".
- * @returns Total hours spent, total matches played, and a pretty-formatted playtime.
- */
+interface PlaytimeResult {
+    playtimeSeconds: number;
+    matchesPlayed: number;
+    pretty: string;
+}
+
+function formatPlaytime(seconds: number): string {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hours}h ${minutes}m ${secs}s`;
+}
+
 export async function getSummonerPlaytime(
     summonerPuuid: string,
     range: number,
     queueType: string = "ranked_solo"
-): Promise<{ playtime: number; matchesPlayed: number; pretty: string }> {
+): Promise<PlaytimeResult> {
     try {
-        console.log(
-            `🔍 Fetching playtime for ${summonerPuuid} over the last ${range} day(s).`
-        );
-
-        // Calculate the time range (lower bound in milliseconds)
-        const now = new Date();
-        const lowerBound = new Date();
-        lowerBound.setDate(now.getDate() - range);
-
-        // Only support ranked_solo for now (queue ID 420)
         if (queueType !== "ranked_solo") {
-            console.log(
-                `⚠️ Queue type '${queueType}' is not supported yet. Only 'ranked_solo' is available.`
+            logger.warn(
+                `Models > hours > Queue type '${queueType}' not supported`
             );
-            return { playtime: 0, matchesPlayed: 0, pretty: "0h 0m 0s" };
+            return { playtimeSeconds: 0, matchesPlayed: 0, pretty: "0h 0m 0s" };
         }
 
-        // Fetch matches within the time range from RankedSoloMatch table
+        const lowerBound = new Date();
+        lowerBound.setDate(lowerBound.getDate() - range);
+
         const matches = await prisma.rankedSoloMatch.findMany({
             where: {
                 summoner_puuid: summonerPuuid,
-                game_start_timestamp: {
-                    gte: BigInt(lowerBound.getTime()),
-                },
+                game_start_timestamp: { gte: BigInt(lowerBound.getTime()) },
             },
-            select: {
-                game_duration: true,
-            },
+            select: { game_duration: true },
         });
 
-        const matchesPlayed = matches.length;
-
-        if (!matchesPlayed) {
-            console.log(
-                `⚠️ No matches found for ${summonerPuuid} in the past ${range} days.`
+        if (!matches.length) {
+            logger.debug(
+                `Models > hours > No matches found for ${summonerPuuid} in past ${range} days`
             );
-            return { playtime: 0, matchesPlayed: 0, pretty: "0h 0m 0s" };
+            return { playtimeSeconds: 0, matchesPlayed: 0, pretty: "0h 0m 0s" };
         }
 
-        // Calculate total playtime (game_duration is in seconds)
-        let totalPlaytimeSeconds = 0;
-        matches.forEach((match) => {
-            totalPlaytimeSeconds += match.game_duration;
-        });
-
-        // Convert seconds to hours
-        const totalPlaytimeHours = totalPlaytimeSeconds / 3600;
-
-        // Convert to pretty format (hh:mm:ss)
-        const hours = Math.floor(totalPlaytimeSeconds / 3600);
-        const minutes = Math.floor((totalPlaytimeSeconds % 3600) / 60);
-        const seconds = totalPlaytimeSeconds % 60;
-
-        const prettyPlaytime = `${hours}h ${minutes}m ${seconds}s`;
-
-        console.log(
-            `✅ Total playtime for ${summonerPuuid}: ${totalPlaytimeHours.toFixed(
-                2
-            )} hours across ${matchesPlayed} matches.`
+        const totalSeconds = matches.reduce(
+            (sum, match) => sum + match.game_duration,
+            0
         );
 
         return {
-            playtime: totalPlaytimeHours,
-            matchesPlayed,
-            pretty: prettyPlaytime,
+            playtimeSeconds: totalSeconds,
+            matchesPlayed: matches.length,
+            pretty: formatPlaytime(totalSeconds),
         };
     } catch (error) {
-        console.error("❌ Error fetching summoner playtime:", error);
+        logger.error(
+            "Models > hours > Error fetching summoner playtime",
+            error
+        );
         throw error;
     }
 }

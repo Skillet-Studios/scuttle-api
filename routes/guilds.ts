@@ -5,262 +5,104 @@ import {
     addGuild,
     setMainChannel,
     getMainChannel,
-    updateGuildCount,
     getGuildById,
 } from "../models/guilds.js";
+import { respondWithSuccess, respondWithError } from "../utils/responses.js";
+import { logger } from "../utils/logger.js";
 
-/**
- * Express router for "guilds" related endpoints.
- */
 const router = Router();
 
-/**
- * GET /guilds
- * Returns an array of all guild documents.
- *
- * Response:
- * 200 OK - An array of guild objects.
- */
 router.get("/", async (_req: Request, res: Response) => {
     try {
         const guilds = await getAllGuilds();
-        return res.json(guilds);
+        return respondWithSuccess(res, 200, undefined, guilds);
     } catch (error) {
-        console.error("Error with GET /guilds", error);
-        return res.status(500).json({
-            message: "Failed to fetch guilds. Please try again later.",
-        });
+        logger.error("Routes > guilds > Error with GET /", error);
+        return respondWithError(res, 500, "Failed to fetch guilds. Please try again later.");
     }
 });
 
-/**
- * GET /guilds/count
- * Returns the total number of guilds.
- *
- * Response:
- * 200 OK - A single integer indicating the total guild count.
- */
 router.get("/count", async (_req: Request, res: Response) => {
     try {
         const numGuilds = await getNumGuilds();
-        return res.json(numGuilds);
+        return respondWithSuccess(res, 200, undefined, { count: numGuilds });
     } catch (error) {
-        console.error("Error with GET /guilds/count", error);
-        return res.status(500).json({
-            message: "Failed to fetch number of guilds. Please try again later.",
-        });
+        logger.error("Routes > guilds > Error with GET /count", error);
+        return respondWithError(res, 500, "Failed to fetch number of guilds. Please try again later.");
     }
 });
 
-/**
- * POST /guilds
- * Expects JSON body: { "guildName": "Guild Name", "guildId": "123456789012345678" }
- *
- * Creates and inserts a new Guild into the database.
- */
 router.post("/", async (req: Request, res: Response) => {
     try {
         const { guildName, guildId } = req.body;
 
-        // Validate input
         if (!guildName || !guildId) {
-            return res.status(400).json({
-                success: false,
-                message: "Missing required fields: guildName and guildId.",
-            });
+            return respondWithError(res, 400, "Missing required fields: guildName and guildId");
         }
 
-        // Call the addGuild function
-        const success = await addGuild(guildName, guildId);
-
-        if (success) {
-            return res.status(200).json({
-                success: true,
-                message: `Guild '${guildName}' was successfully added with ID '${guildId}'.`,
-            });
-        } else {
-            return res.status(400).json({
-                success: false,
-                message: `Failed to add Guild '${guildName}' with ID '${guildId}'. It might already exist.`,
-            });
-        }
+        await addGuild(guildName, guildId);
+        return respondWithSuccess(res, 200, `Guild '${guildName}' was successfully added with ID '${guildId}'`);
     } catch (error) {
-        console.error("Error with POST /guilds/add", error);
-        return res.status(500).json({
-            success: false,
-            message: "Failed to add guild. Please try again later.",
-        });
+        logger.error("Routes > guilds > Error with POST /", error);
+        return respondWithError(res, 500, "Failed to add guild. Please try again later.");
     }
 });
 
-/**
- * POST /guilds/channel
- * Expects JSON body: { "guildId": "123456789012345678", "channelId": "876543210987654321" }
- *
- * Sets the main channel for a specific guild.
- * The main channel is where automatic messages will be sent.
- */
 router.post("/channel", async (req: Request, res: Response) => {
     try {
         const { guildId, channelId } = req.body;
 
-        // Validate input
         if (!guildId || !channelId) {
-            return res.status(400).json({
-                success: false,
-                message: "Missing required fields: guildId and channelId.",
-            });
+            return respondWithError(res, 400, "Missing required fields: guildId and channelId");
         }
 
-        // Call the setMainChannel function
-        const success = await setMainChannel(guildId, channelId);
-
-        if (success) {
-            return res.status(200).json({
-                success: true,
-                message: `Main channel for Guild '${guildId}' was successfully set to '${channelId}'.`,
-            });
-        } else {
-            return res.status(400).json({
-                success: false,
-                message: `Failed to set main channel for Guild '${guildId}'.`,
-            });
-        }
+        await setMainChannel(guildId, channelId);
+        return respondWithSuccess(res, 200, `Main channel for Guild '${guildId}' was successfully set to '${channelId}'`);
     } catch (error) {
-        console.error("Error with POST /guilds/set_main_channel", error);
-        return res.status(500).json({
-            success: false,
-            message: "Failed to set main channel. Please try again later.",
-        });
+        logger.error("Routes > guilds > Error with POST /channel", error);
+        return respondWithError(res, 500, "Failed to set main channel. Please try again later.");
     }
 });
 
-/**
- * GET /guilds/channel
- * Example usage: /guilds/channel?guildId=123456789012345678
- *
- * Query Parameters:
- * - guildId (string, required): The Discord guild ID.
- */
 router.get("/channel", async (req: Request, res: Response) => {
     try {
         const guildId = req.query.guildId as string;
 
-        // Validate that guildId is provided
         if (!guildId) {
-            return res.status(400).json({
-                success: false,
-                message: "Missing required query parameter: guildId.",
-            });
+            return respondWithError(res, 400, "Missing required query parameter: guildId");
         }
 
-        // Call the getMainChannel function
         const mainChannelId = await getMainChannel(guildId);
 
         if (mainChannelId) {
-            return res.status(200).json({
-                success: true,
-                guildId,
-                mainChannelId,
-            });
+            return respondWithSuccess(res, 200, undefined, { guildId, mainChannelId });
         } else {
-            return res.status(404).json({
-                success: false,
-                message: `Main channel not found for Guild ID '${guildId}'.`,
-            });
+            return respondWithError(res, 404, `Main channel not found for Guild ID '${guildId}'`);
         }
     } catch (error) {
-        console.error("Error with GET /guilds/main_channel", error);
-        return res.status(500).json({
-            success: false,
-            message: "Failed to retrieve main channel. Please try again later.",
-        });
+        logger.error("Routes > guilds > Error with GET /channel", error);
+        return respondWithError(res, 500, "Failed to retrieve main channel. Please try again later.");
     }
 });
 
-/**
- * PUT /guilds/count
- * Expects JSON body: { "count": 150 }
- *
- * Updates the total number of guilds in the database.
- */
-router.put("/count", async (req: Request, res: Response) => {
-    try {
-        const { count } = req.body;
-
-        // Validate input
-        if (count === undefined || typeof count !== "number" || count < 0) {
-            return res.status(400).json({
-                success: false,
-                message:
-                    "Invalid or missing required field: count. It must be a non-negative number.",
-            });
-        }
-
-        // Call the updateGuildCount function
-        const success = await updateGuildCount(count);
-
-        if (success) {
-            return res.status(200).json({
-                success: true,
-                message: `Guild count successfully updated to ${count}.`,
-            });
-        } else {
-            return res.status(500).json({
-                success: false,
-                message: "Failed to update guild count. Please try again later.",
-            });
-        }
-    } catch (error) {
-        console.error("Error with PUT /guilds/count", error);
-        return res.status(500).json({
-            success: false,
-            message: "Failed to update guild count. Please try again later.",
-        });
-    }
-});
-
-/**
- * GET /guilds/filter
- * Example usage: /guilds/filter?guildId=123456789012345678
- *
- * Retrieves guild data by its Discord guild ID.
- *
- * Query Parameters:
- * - guildId (string, required): The Discord guild ID.
- */
 router.get("/filter", async (req: Request, res: Response) => {
     try {
         const guildId = req.query.guildId as string;
 
-        // Validate that guildId is provided
         if (!guildId) {
-            return res.status(400).json({
-                success: false,
-                message: "Missing required query parameter: guildId.",
-            });
+            return respondWithError(res, 400, "Missing required query parameter: guildId");
         }
 
-        // Call the getGuildById function
         const guildData = await getGuildById(guildId);
 
         if (guildData) {
-            return res.status(200).json({
-                success: true,
-                guild: guildData,
-            });
+            return respondWithSuccess(res, 200, undefined, { guild: guildData });
         } else {
-            return res.status(404).json({
-                success: false,
-                message: `Guild with ID '${guildId}' not found.`,
-            });
+            return respondWithError(res, 404, `Guild with ID '${guildId}' not found`);
         }
     } catch (error) {
-        console.error("Error with GET /guild", error);
-        return res.status(500).json({
-            success: false,
-            message: "Failed to retrieve guild data. Please try again later.",
-        });
+        logger.error("Routes > guilds > Error with GET /filter", error);
+        return respondWithError(res, 500, "Failed to retrieve guild data. Please try again later.");
     }
 });
 

@@ -7,14 +7,14 @@ export async function getNumCommandsSent(): Promise<number> {
         const count = await prisma.commandInvocation.count();
         return count;
     } catch (error) {
-        logger.error("Error fetching total commands sent", error);
+        logger.error("Models > commands > Error fetching total commands sent", error);
         throw new Error("Database query failed");
     }
 }
 
 export async function logCommandInvocation(
     data: CommandInvocationData
-): Promise<boolean> {
+): Promise<void> {
     try {
         await prisma.commandInvocation.create({
             data: {
@@ -26,13 +26,12 @@ export async function logCommandInvocation(
             },
         });
 
-        logger.debug(`Command invocation logged: ${data.command}`);
-        return true;
+        logger.debug(`Models > commands > Command invocation logged: ${data.command}`);
     } catch (error) {
         logger.error(
-            `Error logging command invocation: ${data.command}`,
+            `Models > commands > Error logging command invocation: ${data.command}`,
             error
         );
-        return false;
+        throw error;
     }
 }
