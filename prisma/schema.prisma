@@ -54,3 +54,76 @@ model GuildSummoner {
   @@index([summoner_puuid])
   @@map("guild_summoners")
 }
+
+// Ranked Solo Queue (420) match data
+// Each row represents a specific summoner's performance in a ranked solo match
+model RankedSoloMatch {
+  id             String @id @default(uuid())
+  match_id       String
+  summoner_puuid String
+
+  // Match metadata from info object
+  end_of_game_result   String
+  game_creation        BigInt
+  game_duration        Int
+  game_end_timestamp   BigInt?
+  game_id              BigInt
+  game_mode            String
+  game_name            String
+  game_start_timestamp BigInt
+  game_type            String
+  game_version         String
+  map_id               Int
+  queue_id             Int // Should always be 420 for this table
+
+  // Basic participant info
+  champion_id   Int
+  champion_name String
+  win           Boolean
+
+  // Core stats
+  kills  Int
+  deaths Int
+  assists Int
+  kda    Float
+
+  // Advanced stats from challenges
+  solo_kills             Int
+  vision_score           Int
+  team_damage_percentage Float
+  kill_participation     Float
+  gold_per_minute        Float
+  damage_per_minute      Float
+  damage_to_champions    Int
+  enemy_missing_pings    Int
+  control_wards_placed   Int
+  ability_uses           Int
+  scuttle_crab_kills     Int
+
+  // Match outcome
+  game_surrendered Boolean
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // Unique constraint: one record per match per summoner
+  @@unique([match_id, summoner_puuid])
+  @@index([summoner_puuid])
+  @@index([game_start_timestamp])
+  @@index([summoner_puuid, game_start_timestamp])
+  @@index([champion_id])
+  @@map("ranked_solo_matches")
+}
+
+// Log of caching events - creates a new row each time we cache match data for a summoner
+// To check if recently cached, query for the most recent row for that summoner
+model SummonerCacheLog {
+  id             String   @id @default(uuid())
+  summoner_puuid String
+  cached_at      DateTime @default(now())
+
+  @@index([summoner_puuid])
+  @@index([summoner_puuid, cached_at])
+  @@index([cached_at])
+  @@map("summoner_cache_logs")
+}

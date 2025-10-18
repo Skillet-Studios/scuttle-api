@@ -46,9 +46,8 @@ export async function getSummonersByGuildId(guildId: string) {
 }
 
 /**
- * Updates the 'last_cached' timestamp for a summoner.
- * Note: This function signature kept for compatibility, but we'll add a separate
- * cached_match_data_timestamps table later.
+ * Creates a new cache log entry for a summoner.
+ * Adds a timestamp to track when match data was cached for this summoner.
  *
  * @param summoner - Summoner data containing name and PUUID.
  * @returns The result of the operation.
@@ -58,10 +57,12 @@ export async function updateCachedTimestamp(summoner: {
     puuid: string;
 }) {
     try {
-        // TODO: Implement when we add the cached_match_data_timestamps table
-        console.log(
-            `updateCachedTimestamp called for ${summoner.name} - will be implemented with matches migration`
-        );
+        await prisma.summonerCacheLog.create({
+            data: {
+                summoner_puuid: summoner.puuid,
+            },
+        });
+        console.log(`✅ Cache log created for ${summoner.name}`);
         return { acknowledged: true };
     } catch (error) {
         console.error("Error updating cached timestamp:", error);
@@ -81,11 +82,22 @@ export async function checkIfCachedWithinRange(
     range: number = 1
 ): Promise<boolean> {
     try {
-        // TODO: Implement when we add the cached_match_data_timestamps table
-        console.log(
-            `checkIfCachedWithinRange called for ${summoner.name} - will be implemented with matches migration`
-        );
-        return false;
+        // Calculate cutoff time
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - range);
+
+        // Find the most recent cache log entry for this summoner
+        const recentLog = await prisma.summonerCacheLog.findFirst({
+            where: {
+                summoner_puuid: summoner.puuid,
+                cached_at: { gte: cutoffDate },
+            },
+            orderBy: {
+                cached_at: "desc",
+            },
+        });
+
+        return recentLog !== null;
     } catch (error) {
         console.error("Error checking cached timestamp range:", error);
         throw new Error("Database query failed");
