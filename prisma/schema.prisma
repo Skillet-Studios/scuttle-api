@@ -1,0 +1,147 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Guild model - represents Discord servers using the bot
+model Guild {
+  id               String           @id @default(uuid())
+  guild_id         BigInt           @unique
+  name             String
+  main_channel_id  BigInt?
+  created_at       DateTime         @default(now())
+  updated_at       DateTime         @updatedAt
+  summoners        GuildSummoner[]
+
+  @@index([guild_id])
+  @@map("guilds")
+}
+
+// Summoner model - represents League of Legends players
+model Summoner {
+  puuid      String          @id
+  name       String
+  region     String
+  created_at DateTime        @default(now())
+  updated_at DateTime        @updatedAt
+  guilds     GuildSummoner[]
+
+  @@index([puuid])
+  @@map("summoners")
+}
+
+// Junction table for many-to-many relationship between guilds and summoners
+model GuildSummoner {
+  guild_id       BigInt
+  summoner_puuid String
+  added_at       DateTime @default(now())
+
+  guild    Guild    @relation(fields: [guild_id], references: [guild_id], onDelete: Cascade)
+  summoner Summoner @relation(fields: [summoner_puuid], references: [puuid], onDelete: Cascade)
+
+  @@id([guild_id, summoner_puuid])
+  @@index([guild_id])
+  @@index([summoner_puuid])
+  @@map("guild_summoners")
+}
+
+// Ranked Solo Queue (420) match data
+// Each row represents a specific summoner's performance in a ranked solo match
+model RankedSoloMatch {
+  id             String @id @default(uuid())
+  match_id       String
+  summoner_puuid String
+
+  // Match metadata from info object
+  end_of_game_result   String
+  game_creation        BigInt
+  game_duration        Int
+  game_end_timestamp   BigInt?
+  game_id              BigInt
+  game_mode            String
+  game_name            String
+  game_start_timestamp BigInt
+  game_type            String
+  game_version         String
+  map_id               Int
+  queue_id             Int // Should always be 420 for this table
+
+  // Basic participant info
+  champion_id   Int
+  champion_name String
+  win           Boolean
+
+  // Core stats
+  kills  Int
+  deaths Int
+  assists Int
+  kda    Float
+
+  // Advanced stats from challenges
+  solo_kills             Int
+  vision_score           Int
+  team_damage_percentage Float
+  kill_participation     Float
+  gold_per_minute        Float
+  damage_per_minute      Float
+  damage_to_champions    Int
+  enemy_missing_pings    Int
+  assist_me_pings        Int
+  control_wards_placed   Int
+  ability_uses           Int
+  scuttle_crab_kills     Int
+
+  // Match outcome
+  game_surrendered Boolean
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // Unique constraint: one record per match per summoner
+  @@unique([match_id, summoner_puuid])
+  @@index([summoner_puuid])
+  @@index([game_start_timestamp])
+  @@index([summoner_puuid, game_start_timestamp])
+  @@index([champion_id])
+  @@map("ranked_solo_matches")
+}
+
+// Log of caching events - creates a new row each time we cache match data for a summoner
+// To check if recently cached, query for the most recent row for that summoner
+model SummonerCacheLog {
+  id             String   @id @default(uuid())
+  summoner_puuid String
+  cached_at      DateTime @default(now())
+
+  @@index([summoner_puuid])
+  @@index([summoner_puuid, cached_at])
+  @@index([cached_at])
+  @@map("summoner_cache_logs")
+}
+
+// Command invocation logs - tracks individual command usage
+model CommandInvocation {
+  id               String   @id @default(uuid())
+  command          String
+  discord_user_id  String?
+  discord_username String?
+  guild_id         String?
+  guild_name       String?
+  created_at       DateTime @default(now())
+
+  @@index([command])
+  @@index([discord_user_id])
+  @@index([guild_id])
+  @@index([created_at])
+  @@map("command_invocations")
+}
