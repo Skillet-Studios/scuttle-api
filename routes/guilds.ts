@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import {
     getNumGuilds,
     getAllGuilds,
+    getGuildsWithMainChannel,
     addGuild,
     setMainChannel,
     getMainChannel,
@@ -29,6 +30,16 @@ router.get("/count", async (_req: Request, res: Response) => {
     } catch (error) {
         logger.error("Routes > guilds > Error with GET /count", error);
         return respondWithError(res, 500, "Failed to fetch number of guilds. Please try again later.");
+    }
+});
+
+router.get("/with-main-channel", async (_req: Request, res: Response) => {
+    try {
+        const guilds = await getGuildsWithMainChannel();
+        return respondWithSuccess(res, 200, undefined, { guilds });
+    } catch (error) {
+        logger.error("Routes > guilds > Error with GET /with-main-channel", error);
+        return respondWithError(res, 500, "Failed to fetch guilds with main channels. Please try again later.");
     }
 });
 

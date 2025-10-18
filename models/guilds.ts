@@ -39,6 +39,23 @@ export async function getAllGuilds(): Promise<SerializedGuild[]> {
     }
 }
 
+export async function getGuildsWithMainChannel(): Promise<SerializedGuild[]> {
+    try {
+        const guilds = await prisma.guild.findMany({
+            where: {
+                main_channel_id: {
+                    not: null,
+                },
+            },
+            orderBy: { created_at: "desc" },
+        });
+        return guilds.map(serializeGuild);
+    } catch (error) {
+        logger.error("Models > guilds > Error fetching guilds with main channels", error);
+        throw new Error("Database query failed");
+    }
+}
+
 export async function addGuild(
     guildName: string,
     guildId: string
