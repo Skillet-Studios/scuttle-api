@@ -27,9 +27,12 @@ function aggregateRankings(
     });
 
     for (const [statName, entries] of Object.entries(rankings)) {
-        rankings[statName] = entries
-            .sort((a, b) => b.value - a.value)
-            .slice(0, limit);
+        // For avgPlacement, lower is better (1st place > 4th place)
+        const sortComparator = statName === "avgPlacement"
+            ? (a: RankingEntry, b: RankingEntry) => a.value - b.value
+            : (a: RankingEntry, b: RankingEntry) => b.value - a.value;
+
+        rankings[statName] = entries.sort(sortComparator).slice(0, limit);
     }
 
     return rankings;
