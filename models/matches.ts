@@ -8,8 +8,8 @@ import {
     getUniqueSummoners,
 } from "./summoners.js";
 import { getAreaFromRegion } from "../utils/processing.js";
-import { Guild } from "../types/guilds.js";
 import { RiotMatchResponse } from "../types/riot.js";
+import { getAllGuilds } from "./guilds.js";
 
 /**
  * Map of friendly queue type names to Riot's queue IDs
@@ -71,20 +71,19 @@ export const QUEUE_ID_MAP = {
 
 /**
  * Caches the last 30 days worth of ranked solo queue (queue=420) match data
- * for every summoner in each provided guild.
+ * for every summoner across all guilds.
  *
- * - Iterates all guilds and their summoners.
+ * - Fetches all guilds and iterates their summoners.
  * - Skips summoners if we already processed them during this run.
  * - If a summoner's data was cached within the last day, only fetch 1 day of matches;
  *   otherwise fetch up to 30 days, in 5-day increments.
  * - Deduplicates matches that are already in the database.
  * - Inserts only new ranked solo matches with extracted stats.
  * - Updates the summoner's cache log once done.
- *
- * @param guilds - An array of guild objects from your database.
  */
-export async function cacheMatchData(guilds: Guild[]): Promise<void> {
+export async function cacheMatchData(): Promise<void> {
     try {
+        const guilds = await getAllGuilds();
         const summonersChecked = new Set<string>();
         let totalMatchesCached = 0;
         const jobStartTime = new Date();
@@ -186,13 +185,14 @@ export async function cacheMatchData(guilds: Guild[]): Promise<void> {
                         continue;
                     }
 
-                    const existingMatches = await prisma.rankedSoloMatch.findMany({
-                        where: {
-                            match_id: { in: matchIds },
-                            summoner_puuid: summonerPuuid,
-                        },
-                        select: { match_id: true },
-                    });
+                    const existingMatches =
+                        await prisma.rankedSoloMatch.findMany({
+                            where: {
+                                match_id: { in: matchIds },
+                                summoner_puuid: summonerPuuid,
+                            },
+                            select: { match_id: true },
+                        });
 
                     const existingIds = existingMatches.map((m) => m.match_id);
                     const newMatchIds = matchIds.filter(
@@ -215,7 +215,9 @@ export async function cacheMatchData(guilds: Guild[]): Promise<void> {
 
                         let matchData: RiotMatchResponse | null = null;
                         try {
-                            const response = await axios.get<RiotMatchResponse>(matchUrl);
+                            const response = await axios.get<RiotMatchResponse>(
+                                matchUrl
+                            );
                             matchData = response.data;
                         } catch (err) {
                             const error = err as Error;
@@ -229,9 +231,10 @@ export async function cacheMatchData(guilds: Guild[]): Promise<void> {
 
                         if (matchData && matchData.info.queueId === 420) {
                             // Find this summoner's participant data
-                            const participant = matchData.info.participants.find(
-                                (p) => p.puuid === summonerPuuid
-                            );
+                            const participant =
+                                matchData.info.participants.find(
+                                    (p) => p.puuid === summonerPuuid
+                                );
 
                             if (!participant) {
                                 console.error(
@@ -246,7 +249,8 @@ export async function cacheMatchData(guilds: Guild[]): Promise<void> {
                             const kda =
                                 participant.deaths === 0
                                     ? participant.kills + participant.assists
-                                    : (participant.kills + participant.assists) /
+                                    : (participant.kills +
+                                          participant.assists) /
                                       participant.deaths;
 
                             // Extract stats from challenges (with safe defaults)
@@ -259,16 +263,24 @@ export async function cacheMatchData(guilds: Guild[]): Promise<void> {
                                     summoner_puuid: summonerPuuid,
 
                                     // Match metadata
-                                    end_of_game_result: matchData.info.endOfGameResult,
-                                    game_creation: BigInt(matchData.info.gameCreation),
+                                    end_of_game_result:
+                                        matchData.info.endOfGameResult,
+                                    game_creation: BigInt(
+                                        matchData.info.gameCreation
+                                    ),
                                     game_duration: matchData.info.gameDuration,
-                                    game_end_timestamp: matchData.info.gameEndTimestamp
-                                        ? BigInt(matchData.info.gameEndTimestamp)
+                                    game_end_timestamp: matchData.info
+                                        .gameEndTimestamp
+                                        ? BigInt(
+                                              matchData.info.gameEndTimestamp
+                                          )
                                         : null,
                                     game_id: BigInt(matchData.info.gameId),
                                     game_mode: matchData.info.gameMode,
                                     game_name: matchData.info.gameName,
-                                    game_start_timestamp: BigInt(matchData.info.gameStartTimestamp),
+                                    game_start_timestamp: BigInt(
+                                        matchData.info.gameStartTimestamp
+                                    ),
                                     game_type: matchData.info.gameType,
                                     game_version: matchData.info.gameVersion,
                                     map_id: matchData.info.mapId,
@@ -288,18 +300,27 @@ export async function cacheMatchData(guilds: Guild[]): Promise<void> {
                                     // Advanced stats from challenges
                                     solo_kills: challenges.soloKills ?? 0,
                                     vision_score: challenges.visionScore ?? 0,
-                                    team_damage_percentage: challenges.teamDamagePercentage ?? 0,
-                                    kill_participation: challenges.killParticipation ?? 0,
-                                    gold_per_minute: challenges.goldPerMinute ?? 0,
-                                    damage_per_minute: challenges.damagePerMinute ?? 0,
-                                    damage_to_champions: participant.totalDamageDealtToChampions,
-                                    enemy_missing_pings: participant.enemyMissingPings,
-                                    control_wards_placed: participant.controlWardsPlaced,
+                                    team_damage_percentage:
+                                        challenges.teamDamagePercentage ?? 0,
+                                    kill_participation:
+                                        challenges.killParticipation ?? 0,
+                                    gold_per_minute:
+                                        challenges.goldPerMinute ?? 0,
+                                    damage_per_minute:
+                                        challenges.damagePerMinute ?? 0,
+                                    damage_to_champions:
+                                        participant.totalDamageDealtToChampions,
+                                    enemy_missing_pings:
+                                        participant.enemyMissingPings,
+                                    control_wards_placed:
+                                        participant.controlWardsPlaced,
                                     ability_uses: challenges.abilityUses ?? 0,
-                                    scuttle_crab_kills: challenges.scuttleCrabKills ?? 0,
+                                    scuttle_crab_kills:
+                                        challenges.scuttleCrabKills ?? 0,
 
                                     // Match outcome
-                                    game_surrendered: participant.gameEndedInSurrender,
+                                    game_surrendered:
+                                        participant.gameEndedInSurrender,
                                 },
                             });
 

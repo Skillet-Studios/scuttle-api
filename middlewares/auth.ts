@@ -1,29 +1,25 @@
 import { Request, Response, NextFunction } from "express";
 import dotenv from "dotenv";
+import { respondWithError } from "../utils/responses.js";
 
 dotenv.config();
 
 const API_KEY = process.env.SCUTTLE_API_KEY;
 
-/**
- * Middleware to verify the API key in request headers.
- */
+if (!API_KEY) {
+    throw new Error("SCUTTLE_API_KEY environment variable is required");
+}
+
 export function verifyApiKey(req: Request, res: Response, next: NextFunction) {
     const receivedApiKey = req.headers["x-api-key"] as string | undefined;
 
     if (!receivedApiKey) {
-        return res.status(401).json({
-            success: false,
-            message: "Missing API key.",
-        });
+        return respondWithError(res, 401, "Missing API key");
     }
 
     if (receivedApiKey !== API_KEY) {
-        return res.status(403).json({
-            success: false,
-            message: "Invalid API key.",
-        });
+        return respondWithError(res, 403, "Invalid API key");
     }
 
-    return next(); // Proceed to the next middleware or route handler
+    return next();
 }
