@@ -25,6 +25,12 @@ const PRETTY_KEYS: Record<string, string> = {
     abilityUses: "🖖 Ability Uses",
     gamesSurrendered: "🏳 Games Surrendered",
     scuttleCrabKills: "🐸 Scuttle Crab Kills",
+    avgPlacement: "🏆 Avg. Placement",
+    firstPlaceFinishes: "🥇 1st Place Finishes",
+    secondPlaceFinishes: "🥈 2nd Place Finishes",
+    thirdPlaceFinishes: "🥉 3rd Place Finishes",
+    fourthPlaceFinishes: "4️⃣ 4th Place Finishes",
+    winRate: "✨ Win Rate (%)",
 };
 
 export function makePretty(stats: Record<string, any>): Record<string, any> {

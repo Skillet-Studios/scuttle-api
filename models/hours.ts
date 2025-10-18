@@ -20,27 +20,36 @@ export async function getSummonerPlaytime(
     queueType: string = "ranked_solo"
 ): Promise<PlaytimeResult> {
     try {
-        if (queueType !== "ranked_solo") {
+        const lowerBound = new Date();
+        lowerBound.setDate(lowerBound.getDate() - range);
+
+        let matches;
+        if (queueType === "arena") {
+            matches = await prisma.arenaMatch.findMany({
+                where: {
+                    summoner_puuid: summonerPuuid,
+                    game_start_timestamp: { gte: BigInt(lowerBound.getTime()) },
+                },
+                select: { game_duration: true },
+            });
+        } else if (queueType === "ranked_solo") {
+            matches = await prisma.rankedSoloMatch.findMany({
+                where: {
+                    summoner_puuid: summonerPuuid,
+                    game_start_timestamp: { gte: BigInt(lowerBound.getTime()) },
+                },
+                select: { game_duration: true },
+            });
+        } else {
             logger.warn(
                 `Models > hours > Queue type '${queueType}' not supported`
             );
             return { playtimeSeconds: 0, matchesPlayed: 0, pretty: "0h 0m 0s" };
         }
 
-        const lowerBound = new Date();
-        lowerBound.setDate(lowerBound.getDate() - range);
-
-        const matches = await prisma.rankedSoloMatch.findMany({
-            where: {
-                summoner_puuid: summonerPuuid,
-                game_start_timestamp: { gte: BigInt(lowerBound.getTime()) },
-            },
-            select: { game_duration: true },
-        });
-
         if (!matches.length) {
             logger.debug(
-                `Models > hours > No matches found for ${summonerPuuid} in past ${range} days`
+                `Models > hours > No ${queueType} matches found for ${summonerPuuid} in past ${range} days`
             );
             return { playtimeSeconds: 0, matchesPlayed: 0, pretty: "0h 0m 0s" };
         }
@@ -57,7 +66,7 @@ export async function getSummonerPlaytime(
         };
     } catch (error) {
         logger.error(
-            "Models > hours > Error fetching summoner playtime",
+            `Models > hours > Error fetching ${queueType} summoner playtime`,
             error
         );
         throw error;
