@@ -155,7 +155,7 @@ async function saveMatchData(
                 participant.assists
             ),
             solo_kills: challenges.soloKills ?? 0,
-            vision_score: challenges.visionScore ?? 0,
+            vision_score: participant.visionScore ?? 0,
             team_damage_percentage: challenges.teamDamagePercentage ?? 0,
             kill_participation: challenges.killParticipation ?? 0,
             gold_per_minute: challenges.goldPerMinute ?? 0,
