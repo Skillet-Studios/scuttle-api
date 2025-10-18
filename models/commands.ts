@@ -1,57 +1,37 @@
 import prisma from "../utils/prisma.js";
+import { logger } from "../utils/logger.js";
+import { CommandInvocationData } from "../types/commands.js";
 
-/**
- * Retrieves the total count of commands sent from the "command_analytics" table.
- *
- * - Sums up the "times_called" field across all documents.
- * - If no documents exist, returns 0.
- *
- * @returns The total number of commands sent.
- */
 export async function getNumCommandsSent(): Promise<number> {
     try {
-        const result = await prisma.commandAnalytics.aggregate({
-            _sum: {
-                times_called: true,
-            },
-        });
-
-        return result._sum.times_called || 0;
+        const count = await prisma.commandInvocation.count();
+        return count;
     } catch (error) {
-        console.error("Error fetching total commands sent:", error);
+        logger.error("Error fetching total commands sent", error);
         throw new Error("Database query failed");
     }
 }
 
-/**
- * Updates the analytics count for a specific command.
- *
- * @param command - The name of the command to update analytics for.
- * @returns Returns `true` if the analytics were successfully updated, else `false`.
- */
-export async function updateCommandAnalytics(command: string): Promise<boolean> {
+export async function logCommandInvocation(
+    data: CommandInvocationData
+): Promise<boolean> {
     try {
-        await prisma.commandAnalytics.upsert({
-            where: {
-                command_name: command,
-            },
-            update: {
-                times_called: {
-                    increment: 1,
-                },
-            },
-            create: {
-                command_name: command,
-                times_called: 1,
+        await prisma.commandInvocation.create({
+            data: {
+                command: data.command,
+                discord_user_id: data.discordUserId || null,
+                discord_username: data.discordUsername || null,
+                guild_id: data.guildId || null,
+                guild_name: data.guildName || null,
             },
         });
 
-        console.log(`Command '${command}' analytics updated.`);
+        logger.debug(`Command invocation logged: ${data.command}`);
         return true;
     } catch (error) {
-        console.error(
-            `Error updating analytics for command '${command}':`,
-            error instanceof Error ? error.message : error
+        logger.error(
+            `Error logging command invocation: ${data.command}`,
+            error
         );
         return false;
     }

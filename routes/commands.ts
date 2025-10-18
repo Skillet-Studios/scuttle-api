@@ -1,71 +1,70 @@
 import { Router, Request, Response } from "express";
-import { getNumCommandsSent, updateCommandAnalytics } from "../models/commands.js";
+import {
+    getNumCommandsSent,
+    logCommandInvocation,
+} from "../models/commands.js";
+import { respondWithSuccess, respondWithError } from "../utils/responses.js";
+import { logger } from "../utils/logger.js";
 
-/**
- * Express router for "commands" related endpoints.
- */
 const router = Router();
 
-/**
- * GET /commands/count
- * Returns the total number of commands sent.
- *
- * Example Request:
- * GET /commands/count
- *
- * Response:
- * 200 OK - A single integer indicating the total commands sent.
- */
 router.get("/count", async (_req: Request, res: Response) => {
     try {
         const totalCommands = await getNumCommandsSent();
-        return res.json(totalCommands);
-    } catch (error) {
-        console.error("Error with GET /commands/count", error);
-        return res.status(500).json({
-            message: "Failed to fetch number of commands sent. Please try again later.",
+        return respondWithSuccess(res, 200, undefined, {
+            count: totalCommands,
         });
+    } catch (error) {
+        logger.error("Error with GET /commands/count", error);
+        return respondWithError(
+            res,
+            500,
+            "Failed to fetch number of commands sent. Please try again later."
+        );
     }
 });
 
-/**
- * POST /commands/analytics/count
- * Expects JSON body: { "command": "command_name" }
- *
- * Updates the analytics count for a specific command.
- */
-router.post("/analytics/count", async (req: Request, res: Response) => {
+router.post("/log", async (req: Request, res: Response) => {
     try {
-        const { command } = req.body;
+        const { command, discordUserId, discordUsername, guildId, guildName } =
+            req.body;
 
-        // Validate input
         if (!command) {
-            return res.status(400).json({
-                success: false,
-                message: "Missing required field: command.",
-            });
+            return respondWithError(
+                res,
+                400,
+                "Missing required field: command"
+            );
         }
 
-        // Call the updateCommandAnalytics function
-        const success = await updateCommandAnalytics(command);
+        const success = await logCommandInvocation({
+            command,
+            discordUserId,
+            discordUsername,
+            guildId,
+            guildName,
+        });
 
         if (success) {
-            return res.status(200).json({
-                success: true,
-                message: `Analytics for command '${command}' updated successfully.`,
-            });
+            return respondWithSuccess(
+                res,
+                200,
+                `Command invocation logged: ${command}`
+            );
         } else {
-            return res.status(500).json({
-                success: false,
-                message: `Failed to update analytics for command '${command}'.`,
-            });
+            return respondWithError(
+                res,
+                500,
+                `Failed to log command invocation: ${command}`
+            );
         }
     } catch (error) {
-        console.error("Error with POST /commands/analytics/count", error);
-        return res.status(500).json({
-            success: false,
-            message: "Failed to update command analytics. Please try again later.",
-        });
+        logger.error("Error with POST /commands/log", error);
+        return respondWithError(
+            res,
+            500,
+            "Failed to log command invocation. Please try again later."
+        );
     }
 });
 
