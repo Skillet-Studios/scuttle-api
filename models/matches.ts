@@ -315,7 +315,6 @@ async function processSummonerMatches(
         daysFetched += batchDays;
     }
 
-    await updateCachedTimestamp(summoner);
     return matchesCached;
 }
 
@@ -350,6 +349,7 @@ export async function cacheMatchData(
                     );
                 }
             }
+            await updateCachedTimestamp(summoner);
         }
 
         const elapsed = Date.now() - startTime;
