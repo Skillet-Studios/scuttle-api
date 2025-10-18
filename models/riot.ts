@@ -24,8 +24,20 @@ export type Region = (typeof regions)[number];
 const API_KEY = process.env.RIOT_API_KEY;
 
 export function checkRiotIdFormat(riotId: string): boolean {
-    const pattern = /^[\w]+(?:\s[\w]+)*\s#[\w]+(?:\s[\w]+)*$/;
-    return pattern.test(riotId);
+    // Riot IDs should be in format "GameName #TAG"
+    // Game names can contain letters, numbers, spaces, and special characters
+    // Tags are typically alphanumeric but can have some special chars
+    const pattern = /^.+\s#.+$/;
+
+    // Basic validation: must have " #" separator with content on both sides
+    if (!pattern.test(riotId)) {
+        return false;
+    }
+
+    const [gameName, tag] = riotId.split(" #");
+
+    // Ensure neither part is empty or just whitespace
+    return gameName.trim().length > 0 && tag.trim().length > 0;
 }
 
 export async function fetchSummonerPuuidByRiotId(
