@@ -145,3 +145,71 @@ model CommandInvocation {
   @@index([created_at])
   @@map("command_invocations")
 }
+
+// Arena (1700) match data
+// Each row represents a specific summoner's performance in an Arena match
+model ArenaMatch {
+  id             String @id @default(uuid())
+  match_id       String
+  summoner_puuid String
+
+  // Match metadata from info object
+  end_of_game_result   String
+  game_creation        BigInt
+  game_duration        Int
+  game_end_timestamp   BigInt?
+  game_id              BigInt
+  game_mode            String
+  game_name            String
+  game_start_timestamp BigInt
+  game_type            String
+  game_version         String
+  map_id               Int
+  queue_id             Int // Should always be 1700 for this table
+
+  // Basic participant info
+  champion_id   Int
+  champion_name String
+  win           Boolean
+
+  // Core stats
+  kills   Int
+  deaths  Int
+  assists Int
+  kda     Float
+
+  // Arena-specific stats
+  placement          Int
+  subteam_placement  Int
+  player_subteam_id  Int
+  player_augment_1   Int
+  player_augment_2   Int
+  player_augment_3   Int
+  player_augment_4   Int
+  player_augment_5   Int
+  player_augment_6   Int
+
+  // Combat stats
+  damage_to_champions Int
+
+  // Items
+  item_0 Int
+  item_1 Int
+  item_2 Int
+  item_3 Int
+  item_4 Int
+  item_5 Int
+  item_6 Int
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // Unique constraint: one record per match per summoner
+  @@unique([match_id, summoner_puuid])
+  @@index([summoner_puuid])
+  @@index([game_start_timestamp])
+  @@index([summoner_puuid, game_start_timestamp])
+  @@index([champion_id])
+  @@index([placement])
+  @@map("arena_matches")
+}

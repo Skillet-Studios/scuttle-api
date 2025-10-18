@@ -9,7 +9,7 @@ import { logger } from "../utils/logger.js";
 export function initCronJobs(): void {
     // Every hour, on the hour
     cron.schedule("0 * * * *", async () => {
-        logger.info("Cron job started: caching match data");
+        logger.info("Cron job started: caching match data for all queues");
         try {
             await cacheMatchData();
             logger.success("Cron job finished: match data caching complete");

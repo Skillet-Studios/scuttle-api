@@ -4,20 +4,11 @@ import { logger } from "../utils/logger.js";
 
 dotenv.config();
 
-const RANKED_SOLO_QUEUE_ID = 420;
-
 async function main() {
     try {
-        const queueId = process.argv[2] ? parseInt(process.argv[2], 10) : RANKED_SOLO_QUEUE_ID;
+        logger.info("Scripts > cacheMatches > Starting match data caching");
 
-        if (isNaN(queueId)) {
-            logger.error("Scripts > cacheMatches > Invalid queue ID provided");
-            process.exit(1);
-        }
-
-        logger.info(`Scripts > cacheMatches > Starting match data caching for queue ID: ${queueId}`);
-
-        await cacheMatchData(queueId);
+        await cacheMatchData();
 
         logger.success("Scripts > cacheMatches > Match caching completed successfully");
         process.exit(0);

@@ -8,9 +8,9 @@ import {
 import { getAreaFromRegion } from "../utils/processing.js";
 import { RiotMatchResponse } from "../types/riot.js";
 import { logger } from "../utils/logger.js";
+import { QUEUE_IDS_TO_CACHE, getQueueName } from "../const/queues.js";
 
 const RIOT_API_KEY = process.env.RIOT_API_KEY;
-const RANKED_SOLO_QUEUE_ID = 420;
 const DEFAULT_FETCH_DAYS = 30;
 const RECENT_CACHE_DAYS = 1;
 const DAYS_PER_BATCH = 5;
@@ -68,6 +68,7 @@ export const QUEUE_ID_MAP = {
     odyssey_extraction_onslaught: 1070,
     nexus_blitz: 1200,
     ultimate_spellbook: 1400,
+    arena: 1700,
 } as const;
 
 function calculateKDA(kills: number, deaths: number, assists: number): number {
@@ -171,6 +172,84 @@ async function saveMatchData(
     });
 }
 
+async function getNewArenaMatchIds(
+    matchIds: string[],
+    summonerPuuid: string
+): Promise<string[]> {
+    const existingMatches = await prisma.arenaMatch.findMany({
+        where: {
+            match_id: { in: matchIds },
+            summoner_puuid: summonerPuuid,
+        },
+        select: { match_id: true },
+    });
+
+    const existingIds = new Set(existingMatches.map((m) => m.match_id));
+    return matchIds.filter((id) => !existingIds.has(id));
+}
+
+async function saveArenaMatchData(
+    matchData: RiotMatchResponse,
+    summonerPuuid: string
+): Promise<void> {
+    const participant = matchData.info.participants.find(
+        (p) => p.puuid === summonerPuuid
+    );
+
+    if (!participant) {
+        throw new Error(`Participant not found for ${summonerPuuid}`);
+    }
+
+    await prisma.arenaMatch.create({
+        data: {
+            match_id: matchData.metadata.matchId,
+            summoner_puuid: summonerPuuid,
+            end_of_game_result: matchData.info.endOfGameResult,
+            game_creation: BigInt(matchData.info.gameCreation),
+            game_duration: matchData.info.gameDuration,
+            game_end_timestamp: matchData.info.gameEndTimestamp
+                ? BigInt(matchData.info.gameEndTimestamp)
+                : null,
+            game_id: BigInt(matchData.info.gameId),
+            game_mode: matchData.info.gameMode,
+            game_name: matchData.info.gameName,
+            game_start_timestamp: BigInt(matchData.info.gameStartTimestamp),
+            game_type: matchData.info.gameType,
+            game_version: matchData.info.gameVersion,
+            map_id: matchData.info.mapId,
+            queue_id: matchData.info.queueId,
+            champion_id: participant.championId,
+            champion_name: participant.championName,
+            win: participant.win,
+            kills: participant.kills,
+            deaths: participant.deaths,
+            assists: participant.assists,
+            kda: calculateKDA(
+                participant.kills,
+                participant.deaths,
+                participant.assists
+            ),
+            placement: participant.placement ?? 0,
+            subteam_placement: participant.subteamPlacement ?? 0,
+            player_subteam_id: participant.playerSubteamId ?? 0,
+            player_augment_1: participant.playerAugment1 ?? 0,
+            player_augment_2: participant.playerAugment2 ?? 0,
+            player_augment_3: participant.playerAugment3 ?? 0,
+            player_augment_4: participant.playerAugment4 ?? 0,
+            player_augment_5: participant.playerAugment5 ?? 0,
+            player_augment_6: participant.playerAugment6 ?? 0,
+            damage_to_champions: participant.totalDamageDealtToChampions,
+            item_0: participant.item0 ?? 0,
+            item_1: participant.item1 ?? 0,
+            item_2: participant.item2 ?? 0,
+            item_3: participant.item3 ?? 0,
+            item_4: participant.item4 ?? 0,
+            item_5: participant.item5 ?? 0,
+            item_6: participant.item6 ?? 0,
+        },
+    });
+}
+
 async function processSummonerMatches(
     summoner: { name: string; puuid: string; region: string },
     queueId: number
@@ -182,6 +261,10 @@ async function processSummonerMatches(
     const daysToFetch = cachedRecently ? RECENT_CACHE_DAYS : DEFAULT_FETCH_DAYS;
     const region = summoner.region ?? "na1";
     const area = getAreaFromRegion(region) || "americas";
+
+    const isArena = queueId === 1700;
+    const getNewIds = isArena ? getNewArenaMatchIds : getNewMatchIds;
+    const saveData = isArena ? saveArenaMatchData : saveMatchData;
 
     let matchesCached = 0;
     let daysFetched = 0;
@@ -205,14 +288,14 @@ async function processSummonerMatches(
                 queueId
             );
 
-            const newMatchIds = await getNewMatchIds(matchIds, summoner.puuid);
+            const newMatchIds = await getNewIds(matchIds, summoner.puuid);
 
             for (const matchId of newMatchIds) {
                 try {
                     const matchData = await fetchMatchDetails(matchId, area);
 
                     if (matchData.info.queueId === queueId) {
-                        await saveMatchData(matchData, summoner.puuid);
+                        await saveData(matchData, summoner.puuid);
                         matchesCached++;
                     }
                 } catch (error) {
@@ -237,28 +320,35 @@ async function processSummonerMatches(
 }
 
 export async function cacheMatchData(
-    queueId: number = RANKED_SOLO_QUEUE_ID
+    queueIds: number[] = QUEUE_IDS_TO_CACHE
 ): Promise<void> {
     try {
         const startTime = Date.now();
         const summoners = await getUniqueSummoners();
-        let totalMatches = 0;
+        const queueNames = queueIds.map(getQueueName).join(", ");
 
         logger.info(
-            `Models > matches > Starting match data caching for ${summoners.length} summoners`
+            `Models > matches > Starting match data caching for ${summoners.length} summoners across ${queueIds.length} queue(s): ${queueNames}`
         );
 
-        for (const summoner of summoners) {
-            const matchesCached = await processSummonerMatches(
-                summoner,
-                queueId
-            );
-            totalMatches += matchesCached;
+        const totals: Record<number, number> = {};
+        queueIds.forEach((id) => (totals[id] = 0));
 
-            if (matchesCached > 0) {
-                logger.info(
-                    `Models > matches > Cached ${matchesCached} matches for ${summoner.name}`
+        for (const summoner of summoners) {
+            for (const queueId of queueIds) {
+                const matchesCached = await processSummonerMatches(
+                    summoner,
+                    queueId
                 );
+                totals[queueId] += matchesCached;
+
+                if (matchesCached > 0) {
+                    logger.info(
+                        `Models > matches > Cached ${matchesCached} ${getQueueName(
+                            queueId
+                        )} matches for ${summoner.name}`
+                    );
+                }
             }
         }
 
@@ -266,8 +356,16 @@ export async function cacheMatchData(
         const minutes = Math.floor(elapsed / 60000);
         const seconds = Math.floor((elapsed % 60000) / 1000);
 
+        const totalMatches = Object.values(totals).reduce(
+            (sum, count) => sum + count,
+            0
+        );
+        const breakdown = queueIds
+            .map((id) => `${getQueueName(id)}: ${totals[id]}`)
+            .join(", ");
+
         logger.success(
-            `Models > matches > Caching complete: ${totalMatches} matches in ${minutes}m ${seconds}s`
+            `Models > matches > Caching complete: ${totalMatches} total matches (${breakdown}) in ${minutes}m ${seconds}s`
         );
     } catch (error) {
         logger.error("Models > matches > Error in cacheMatchData", error);
@@ -280,16 +378,24 @@ export async function deleteMatchesOlderThan(days = 31): Promise<number> {
         const cutoffMs = days * 24 * 60 * 60 * 1000;
         const cutoffTimestamp = BigInt(Date.now() - cutoffMs);
 
-        const result = await prisma.rankedSoloMatch.deleteMany({
+        const rankedResult = await prisma.rankedSoloMatch.deleteMany({
             where: {
                 game_start_timestamp: { lt: cutoffTimestamp },
             },
         });
 
+        const arenaResult = await prisma.arenaMatch.deleteMany({
+            where: {
+                game_start_timestamp: { lt: cutoffTimestamp },
+            },
+        });
+
+        const totalDeleted = rankedResult.count + arenaResult.count;
+
         logger.info(
-            `Models > matches > Deleted ${result.count} matches older than ${days} days`
+            `Models > matches > Deleted ${totalDeleted} matches older than ${days} days (Ranked: ${rankedResult.count}, Arena: ${arenaResult.count})`
         );
-        return result.count;
+        return totalDeleted;
     } catch (error) {
         logger.error("Models > matches > Error deleting old matches", error);
         throw error;
@@ -308,33 +414,47 @@ function serializeMatch(match: any): any {
 
 export async function fetchAllSummonerMatchDataByRange(
     summonerPuuid: string,
-    range = 7
+    range = 7,
+    queueType = "ranked_solo"
 ): Promise<any[] | null> {
     try {
         const now = new Date();
         const lowerRange = new Date(now.setDate(now.getDate() - range));
         const lowerRangeEpoch = BigInt(lowerRange.getTime());
 
-        const matches = await prisma.rankedSoloMatch.findMany({
-            where: {
-                summoner_puuid: summonerPuuid,
-                game_start_timestamp: { gte: lowerRangeEpoch },
-            },
-            orderBy: {
-                game_start_timestamp: "desc",
-            },
-        });
+        let matches;
+        if (queueType === "arena") {
+            matches = await prisma.arenaMatch.findMany({
+                where: {
+                    summoner_puuid: summonerPuuid,
+                    game_start_timestamp: { gte: lowerRangeEpoch },
+                },
+                orderBy: {
+                    game_start_timestamp: "desc",
+                },
+            });
+        } else {
+            matches = await prisma.rankedSoloMatch.findMany({
+                where: {
+                    summoner_puuid: summonerPuuid,
+                    game_start_timestamp: { gte: lowerRangeEpoch },
+                },
+                orderBy: {
+                    game_start_timestamp: "desc",
+                },
+            });
+        }
 
         if (!matches || matches.length === 0) {
             logger.debug(
-                `Models > matches > No matches found for ${summonerPuuid} within ${range} days`
+                `Models > matches > No ${queueType} matches found for ${summonerPuuid} within ${range} days`
             );
             return null;
         }
         return matches.map(serializeMatch);
     } catch (error) {
         logger.error(
-            "Models > matches > Error fetching summoner matches",
+            `Models > matches > Error fetching ${queueType} summoner matches`,
             error
         );
         throw error;
@@ -343,31 +463,45 @@ export async function fetchAllSummonerMatchDataByRange(
 
 export async function fetchAllSummonerMatchDataSinceDate(
     summonerPuuid: string,
-    startDate: Date
+    startDate: Date,
+    queueType = "ranked_solo"
 ): Promise<any[] | null> {
     try {
         const startDateEpoch = BigInt(startDate.getTime());
 
-        const matches = await prisma.rankedSoloMatch.findMany({
-            where: {
-                summoner_puuid: summonerPuuid,
-                game_start_timestamp: { gte: startDateEpoch },
-            },
-            orderBy: {
-                game_start_timestamp: "desc",
-            },
-        });
+        let matches;
+        if (queueType === "arena") {
+            matches = await prisma.arenaMatch.findMany({
+                where: {
+                    summoner_puuid: summonerPuuid,
+                    game_start_timestamp: { gte: startDateEpoch },
+                },
+                orderBy: {
+                    game_start_timestamp: "desc",
+                },
+            });
+        } else {
+            matches = await prisma.rankedSoloMatch.findMany({
+                where: {
+                    summoner_puuid: summonerPuuid,
+                    game_start_timestamp: { gte: startDateEpoch },
+                },
+                orderBy: {
+                    game_start_timestamp: "desc",
+                },
+            });
+        }
 
         if (!matches || matches.length === 0) {
             logger.debug(
-                `Models > matches > No matches found for ${summonerPuuid} since ${startDate.toISOString()}`
+                `Models > matches > No ${queueType} matches found for ${summonerPuuid} since ${startDate.toISOString()}`
             );
             return null;
         }
         return matches.map(serializeMatch);
     } catch (error) {
         logger.error(
-            "Models > matches > Error fetching summoner matches since date",
+            `Models > matches > Error fetching ${queueType} summoner matches since date`,
             error
         );
         throw error;
@@ -380,21 +514,29 @@ export async function deleteMatchesForRemovedSummoners(): Promise<number> {
         const activeSummoners = await getUniqueSummoners();
         const activePuuids = activeSummoners.map((s) => s.puuid);
 
-        const result = await prisma.rankedSoloMatch.deleteMany({
+        const rankedResult = await prisma.rankedSoloMatch.deleteMany({
             where: {
                 summoner_puuid: { notIn: activePuuids },
             },
         });
 
-        if (result.count === 0) {
+        const arenaResult = await prisma.arenaMatch.deleteMany({
+            where: {
+                summoner_puuid: { notIn: activePuuids },
+            },
+        });
+
+        const totalDeleted = rankedResult.count + arenaResult.count;
+
+        if (totalDeleted === 0) {
             logger.info("Models > matches > No orphaned matches found");
             return 0;
         }
 
         logger.info(
-            `Models > matches > Deleted ${result.count} orphaned matches`
+            `Models > matches > Deleted ${totalDeleted} orphaned matches (Ranked: ${rankedResult.count}, Arena: ${arenaResult.count})`
         );
-        return result.count;
+        return totalDeleted;
     } catch (error) {
         logger.error(
             "Models > matches > Error deleting orphaned matches",

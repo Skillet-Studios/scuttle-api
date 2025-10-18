@@ -6,11 +6,14 @@ dotenv.config();
 
 async function main() {
     try {
-        logger.warn("Scripts > clearMatches > About to delete all matches from ranked_solo_matches table");
+        logger.warn("Scripts > clearMatches > About to delete all matches from ranked_solo_matches and arena_matches tables");
 
-        const result = await prisma.rankedSoloMatch.deleteMany({});
+        const rankedResult = await prisma.rankedSoloMatch.deleteMany({});
+        const arenaResult = await prisma.arenaMatch.deleteMany({});
 
-        logger.success(`Scripts > clearMatches > Successfully deleted ${result.count} matches`);
+        const totalDeleted = rankedResult.count + arenaResult.count;
+
+        logger.success(`Scripts > clearMatches > Successfully deleted ${totalDeleted} matches (Ranked: ${rankedResult.count}, Arena: ${arenaResult.count})`);
         process.exit(0);
     } catch (error) {
         logger.error("Scripts > clearMatches > Error clearing matches", error);

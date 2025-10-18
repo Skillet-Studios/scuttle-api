@@ -11,6 +11,7 @@
     "start:js": "node server.js",
     "cache": "tsx scripts/cacheMatches.ts",
     "clear-matches": "tsx scripts/clearMatches.ts",
+    "clear-cache-logs": "tsx scripts/clearCacheLogs.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

@@ -6,4 +6,4 @@ claude.md
 /generated/prisma
 dist/
 *.tsbuildinfo
-example.json
+example*.json
