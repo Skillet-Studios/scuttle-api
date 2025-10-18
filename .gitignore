@@ -6,4 +6,5 @@ claude.md
 /generated/prisma
 dist/
 *.tsbuildinfo
-/scripts/migrate-mongo-to-supabase.ts
+/scripts
+example.json

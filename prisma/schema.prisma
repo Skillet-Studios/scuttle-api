@@ -127,3 +127,13 @@ model SummonerCacheLog {
   @@index([cached_at])
   @@map("summoner_cache_logs")
 }
+
+// Command analytics - tracks how many times each command has been called
+model CommandAnalytics {
+  id           String @id @default(uuid())
+  command_name String @unique
+  times_called Int    @default(0)
+
+  @@index([command_name])
+  @@map("command_analytics")
+}

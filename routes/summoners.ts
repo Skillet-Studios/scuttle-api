@@ -15,13 +15,13 @@ const router = Router();
  * GET /summoners/count
  * Returns the total number of summoners across all guilds.
  */
-router.get("/count", async (req: Request, res: Response) => {
+router.get("/count", async (_req: Request, res: Response) => {
     try {
         const totalSummoners = await getNumSummoners();
-        res.json(totalSummoners);
+        return res.json(totalSummoners);
     } catch (error) {
         console.error("Error with GET /summoners/count", error);
-        res.status(500).json({
+        return res.status(500).json({
             message:
                 "Failed to fetch number of summoners. Please try again later.",
         });
@@ -35,10 +35,10 @@ router.get("/count", async (req: Request, res: Response) => {
 router.get("/guild/:guildId", async (req: Request, res: Response) => {
     try {
         const summoners = await getSummonersByGuildId(req.params.guildId);
-        res.json(summoners);
+        return res.json(summoners);
     } catch (error) {
         console.error("Error with GET /summoners/guild/:guildId", error);
-        res.status(500).json({
+        return res.status(500).json({
             message:
                 "Failed to fetch summoners by guild ID. Please try again later.",
         });
@@ -67,7 +67,7 @@ router.post("/cache/timestamp", async (req: Request, res: Response) => {
         });
     } catch (error) {
         console.error("Error with POST /summoners/cache/timestamp", error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message:
                 "Failed to update cached timestamp. Please try again later.",
@@ -103,7 +103,7 @@ router.get("/cache/:summonerId", async (req: Request, res: Response) => {
         });
     } catch (error) {
         console.error("Error with GET /summoners/cache/:summonerId", error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: "Failed to check cached timestamp. Please try again later.",
         });
@@ -144,7 +144,7 @@ router.post("/", async (req: Request, res: Response) => {
         }
     } catch (error) {
         console.error("Error with POST /summoners/add", error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: "Failed to add summoner to guild. Please try again later.",
         });
@@ -190,7 +190,7 @@ router.delete("/", async (req: Request, res: Response) => {
         }
     } catch (error) {
         console.error("Error with DELETE /summoners", error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message:
                 "Failed to remove summoner from guild. Please try again later.",
@@ -208,16 +208,16 @@ router.delete("/", async (req: Request, res: Response) => {
  *   summoners: [{ name: "string", puuid: "string" }]
  * }
  */
-router.get("/unique", async (req: Request, res: Response) => {
+router.get("/unique", async (_req: Request, res: Response) => {
     try {
         const uniqueSummoners = await getUniqueSummoners();
-        res.json({
+        return res.json({
             count: uniqueSummoners.length,
             summoners: uniqueSummoners,
         });
     } catch (error) {
         console.error("Error with GET /summoners/unique", error);
-        res.status(500).json({
+        return res.status(500).json({
             message: "Failed to fetch unique summoners. Please try again later.",
         });
     }

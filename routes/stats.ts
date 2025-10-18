@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { fetchSummonerStatsByDayRange, makePretty } from "../models/stats.js";
 
 const router = Router();
@@ -11,11 +11,11 @@ const router = Router();
  * and for an optional queueType (defaults to "ranked_solo").
  * Returns {} if not "ranked_solo" (based on our logic).
  */
-router.get("/:summonerPuuid", async (req, res) => {
+router.get("/:summonerPuuid", async (req: Request, res: Response) => {
     try {
         const summonerPuuid = req.params.summonerPuuid;
-        const range = parseInt(req.query.range, 10) || 7;
-        const queueType = req.query.queueType || "ranked_solo";
+        const range = parseInt(req.query.range as string, 10) || 7;
+        const queueType = (req.query.queueType as string) || "ranked_solo";
 
         const stats = await fetchSummonerStatsByDayRange(
             summonerPuuid,
@@ -32,7 +32,7 @@ router.get("/:summonerPuuid", async (req, res) => {
         });
     } catch (error) {
         console.error("Error with GET /stats/:summonerPuuid", error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: "Failed to fetch summoner stats. Please try again later.",
         });
@@ -47,11 +47,11 @@ router.get("/:summonerPuuid", async (req, res) => {
  * format using the `makePretty` method.
  * Defaults queueType to "ranked_solo" if not provided.
  */
-router.get("/pretty/:summonerPuuid", async (req, res) => {
+router.get("/pretty/:summonerPuuid", async (req: Request, res: Response) => {
     try {
         const summonerPuuid = req.params.summonerPuuid;
-        const range = parseInt(req.query.range, 10) || 7;
-        const queueType = req.query.queueType || "ranked_solo";
+        const range = parseInt(req.query.range as string, 10) || 7;
+        const queueType = (req.query.queueType as string) || "ranked_solo";
 
         // Fetch stats
         const stats = await fetchSummonerStatsByDayRange(
@@ -72,7 +72,7 @@ router.get("/pretty/:summonerPuuid", async (req, res) => {
         });
     } catch (error) {
         console.error("Error with GET /stats/pretty/:summonerPuuid", error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: "Failed to fetch summoner stats. Please try again later.",
         });

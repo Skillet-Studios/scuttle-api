@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { fetchReportByDayRange } from "../models/reports.js";
 import { makePretty } from "../models/stats.js";
 
@@ -16,9 +16,9 @@ const router = Router();
  * - range (number, optional): The number of days to look back. Defaults to 7.
  * - queueType (string, optional): The queue type to filter matches. Defaults to "ranked_solo".
  */
-router.get("/", async (req, res) => {
+router.get("/", async (req: Request, res: Response) => {
     try {
-        const { guildId, range = 7, queueType = "ranked_solo" } = req.query;
+        const { guildId, range = "7", queueType = "ranked_solo" } = req.query;
 
         // Validate required parameter
         if (!guildId) {
@@ -29,7 +29,11 @@ router.get("/", async (req, res) => {
         }
 
         // Fetch the report
-        const report = await fetchReportByDayRange(guildId, Number(range), queueType);
+        const report = await fetchReportByDayRange(
+            guildId as string,
+            Number(range),
+            queueType as string
+        );
 
         if (report) {
             return res.status(200).json({
@@ -47,7 +51,7 @@ router.get("/", async (req, res) => {
         }
     } catch (error) {
         console.error("Error with GET /reports", error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: "Failed to fetch report. Please try again later.",
         });
@@ -66,9 +70,9 @@ router.get("/", async (req, res) => {
  * - range (number, optional): The number of days to look back. Defaults to 7.
  * - queueType (string, optional): The queue type to filter matches. Defaults to "ranked_solo".
  */
-router.get("/pretty", async (req, res) => {
+router.get("/pretty", async (req: Request, res: Response) => {
     try {
-        const { guildId, range = 7, queueType = "ranked_solo" } = req.query;
+        const { guildId, range = "7", queueType = "ranked_solo" } = req.query;
 
         // Validate required parameter
         if (!guildId) {
@@ -79,7 +83,7 @@ router.get("/pretty", async (req, res) => {
         }
 
         // Validate that range is a positive integer
-        const parsedRange = parseInt(range, 10);
+        const parsedRange = parseInt(range as string, 10);
         if (isNaN(parsedRange) || parsedRange <= 0) {
             return res.status(400).json({
                 success: false,
@@ -88,7 +92,11 @@ router.get("/pretty", async (req, res) => {
         }
 
         // Fetch the report
-        const report = await fetchReportByDayRange(guildId, parsedRange, queueType);
+        const report = await fetchReportByDayRange(
+            guildId as string,
+            parsedRange,
+            queueType as string
+        );
 
         if (report) {
             // Convert to a user-friendly format
@@ -109,7 +117,7 @@ router.get("/pretty", async (req, res) => {
         }
     } catch (error) {
         console.error("Error with GET /reports/pretty", error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: "Failed to fetch pretty report. Please try again later.",
         });

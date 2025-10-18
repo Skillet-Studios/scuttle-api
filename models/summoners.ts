@@ -1,5 +1,5 @@
 import prisma from "../utils/prisma.js";
-import { fetchSummonerPuuidByRiotId, getSummonerRegion, Region } from "./riot.js";
+import { fetchSummonerPuuidByRiotId, getSummonerRegion } from "./riot.js";
 
 /**
  * Gets the total number of summoners across all guilds.

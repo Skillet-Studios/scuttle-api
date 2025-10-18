@@ -25,5 +25,5 @@ export function verifyApiKey(req: Request, res: Response, next: NextFunction) {
         });
     }
 
-    next(); // Proceed to the next middleware or route handler
+    return next(); // Proceed to the next middleware or route handler
 }

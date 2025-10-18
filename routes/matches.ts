@@ -42,7 +42,7 @@ router.get("/:summonerPuuid", async (req: Request, res: Response) => {
         });
     } catch (error) {
         console.error("Error with GET /matches/:summonerPuuid", error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: "Failed to fetch match data. Please try again later.",
         });
@@ -103,7 +103,7 @@ router.get("/:summonerPuuid/since", async (req: Request, res: Response) => {
         });
     } catch (error) {
         console.error("Error with GET /matches/:summonerPuuid/since", error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message:
                 "Failed to fetch match data since the specified date. Please try again later.",

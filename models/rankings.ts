@@ -1,21 +1,28 @@
-// models/rankings.js
-
 import { getGuildById } from "./guilds.js";
 import { getSummonersByGuildId } from "./summoners.js";
-import { fetchAllSummonerMatchDataSinceDate } from "./matches.js";
+import prisma from "../utils/prisma.js";
 import { CALCULATE_STATS_MAP } from "./reports.js";
 
+interface RankingEntry {
+    name: string;
+    value: number;
+}
 
 /**
  * Fetches the top summoners by stat from a specific start date for a given guild.
- * 
- * @param {string} guildId - The Discord guild ID.
- * @param {Date} startDate - The start date from which to fetch matches.
- * @param {number} [limit=5] - The number of top summoners to retrieve per stat.
- * @param {string} [queueType="ranked_solo"] - The queue type to filter matches.
- * @returns {Promise<Object|null>} - Returns an object with top summoners per stat or null if guild/summoners not found.
+ *
+ * @param guildId - The Discord guild ID.
+ * @param startDate - The start date from which to fetch matches.
+ * @param limit - The number of top summoners to retrieve per stat. Defaults to 5.
+ * @param queueType - The queue type to filter matches. Defaults to "ranked_solo".
+ * @returns Returns an object with top summoners per stat or null if guild/summoners not found.
  */
-export async function fetchRankings(guildId, startDate, limit = 5, queueType = "ranked_solo") {
+export async function fetchRankings(
+    guildId: string,
+    startDate: Date,
+    limit: number = 5,
+    queueType: string = "ranked_solo"
+): Promise<Record<string, RankingEntry[]> | null> {
     try {
         // Retrieve guild data using getGuildById
         const guildData = await getGuildById(guildId);
@@ -41,18 +48,27 @@ export async function fetchRankings(guildId, startDate, limit = 5, queueType = "
             return null;
         }
 
-        const topStats = {};
+        const topStats: Record<string, RankingEntry[]> = {};
 
         // To improve performance, fetch all match data concurrently
         const summonerPromises = summoners.map(async (summoner) => {
             const puuid = summoner.puuid;
 
-            // Fetch match data since startDate with optional queueType
-            const matchesData = await fetchAllSummonerMatchDataSinceDate(puuid, startDate, queueType);
+            // Fetch match data since startDate from RankedSoloMatch table
+            const matchesData = await prisma.rankedSoloMatch.findMany({
+                where: {
+                    summoner_puuid: puuid,
+                    game_start_timestamp: {
+                        gte: BigInt(startDateEpoch),
+                    },
+                },
+            });
 
             // If no matches found for the summoner, skip to the next
             if (!matchesData || matchesData.length === 0) {
-                console.log(`No match data found for summoner '${summoner.name}' since ${startDate.toISOString()}.`);
+                console.log(
+                    `No match data found for summoner '${summoner.name}' since ${startDate.toISOString()}.`
+                );
                 return null;
             }
 
@@ -74,7 +90,7 @@ export async function fetchRankings(guildId, startDate, limit = 5, queueType = "
                 if (!topStats[statName]) {
                     topStats[statName] = [];
                 }
-                topStats[statName].push({ name, value });
+                topStats[statName].push({ name, value: value as number });
             }
         });
 
@@ -87,7 +103,10 @@ export async function fetchRankings(guildId, startDate, limit = 5, queueType = "
 
         return topStats;
     } catch (error) {
-        console.error(`Error fetching rankings for guild '${guildId}':`, error.message);
+        console.error(
+            `Error fetching rankings for guild '${guildId}':`,
+            error instanceof Error ? error.message : error
+        );
         throw new Error("Failed to fetch rankings.");
     }
 }

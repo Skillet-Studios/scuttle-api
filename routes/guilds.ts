@@ -21,13 +21,13 @@ const router = Router();
  * Response:
  * 200 OK - An array of guild objects.
  */
-router.get("/", async (req: Request, res: Response) => {
+router.get("/", async (_req: Request, res: Response) => {
     try {
         const guilds = await getAllGuilds();
-        res.json(guilds);
+        return res.json(guilds);
     } catch (error) {
         console.error("Error with GET /guilds", error);
-        res.status(500).json({
+        return res.status(500).json({
             message: "Failed to fetch guilds. Please try again later.",
         });
     }
@@ -40,13 +40,13 @@ router.get("/", async (req: Request, res: Response) => {
  * Response:
  * 200 OK - A single integer indicating the total guild count.
  */
-router.get("/count", async (req: Request, res: Response) => {
+router.get("/count", async (_req: Request, res: Response) => {
     try {
         const numGuilds = await getNumGuilds();
-        res.json(numGuilds);
+        return res.json(numGuilds);
     } catch (error) {
         console.error("Error with GET /guilds/count", error);
-        res.status(500).json({
+        return res.status(500).json({
             message: "Failed to fetch number of guilds. Please try again later.",
         });
     }
@@ -86,7 +86,7 @@ router.post("/", async (req: Request, res: Response) => {
         }
     } catch (error) {
         console.error("Error with POST /guilds/add", error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: "Failed to add guild. Please try again later.",
         });
@@ -128,7 +128,7 @@ router.post("/channel", async (req: Request, res: Response) => {
         }
     } catch (error) {
         console.error("Error with POST /guilds/set_main_channel", error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: "Failed to set main channel. Please try again later.",
         });
@@ -171,7 +171,7 @@ router.get("/channel", async (req: Request, res: Response) => {
         }
     } catch (error) {
         console.error("Error with GET /guilds/main_channel", error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: "Failed to retrieve main channel. Please try again later.",
         });
@@ -213,7 +213,7 @@ router.put("/count", async (req: Request, res: Response) => {
         }
     } catch (error) {
         console.error("Error with PUT /guilds/count", error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: "Failed to update guild count. Please try again later.",
         });
@@ -257,7 +257,7 @@ router.get("/filter", async (req: Request, res: Response) => {
         }
     } catch (error) {
         console.error("Error with GET /guild", error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: "Failed to retrieve guild data. Please try again later.",
         });

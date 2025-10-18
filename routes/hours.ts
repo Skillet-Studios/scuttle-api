@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { getSummonerPlaytime } from "../models/hours.js";
 
 const router = Router();
@@ -9,7 +9,7 @@ const router = Router();
  * @query {string} queueType (Optional) - The type of queue (e.g., ranked_solo, aram). Defaults to "ranked_solo".
  * @query {number} range - The number of days to look back (e.g., 1 for daily, 7 for weekly).
  */
-router.get("/:summonerPuuid", async (req, res) => {
+router.get("/:summonerPuuid", async (req: Request, res: Response) => {
     try {
         const { summonerPuuid } = req.params;
         const { queueType = "ranked_solo", range } = req.query;
@@ -23,7 +23,7 @@ router.get("/:summonerPuuid", async (req, res) => {
         const { playtime, matchesPlayed, pretty } = await getSummonerPlaytime(
             summonerPuuid,
             Number(range),
-            queueType
+            queueType as string
         );
 
         return res.json({
@@ -35,7 +35,7 @@ router.get("/:summonerPuuid", async (req, res) => {
         });
     } catch (error) {
         console.error("❌ Error in GET /hours:", error);
-        res.status(500).json({
+        return res.status(500).json({
             message: "Failed to fetch playtime data. Please try again later.",
         });
     }

@@ -9,7 +9,7 @@ import {
 } from "./summoners.js";
 import { getAreaFromRegion } from "../utils/processing.js";
 import { Guild } from "../types/guilds.js";
-import { RiotMatchResponse, RiotParticipant } from "../types/riot.js";
+import { RiotMatchResponse } from "../types/riot.js";
 
 /**
  * Map of friendly queue type names to Riot's queue IDs

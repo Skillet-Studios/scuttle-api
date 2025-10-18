@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { getNumCommandsSent, updateCommandAnalytics } from "../models/commands.js";
 
 /**
@@ -16,13 +16,13 @@ const router = Router();
  * Response:
  * 200 OK - A single integer indicating the total commands sent.
  */
-router.get("/count", async (req, res) => {
+router.get("/count", async (_req: Request, res: Response) => {
     try {
         const totalCommands = await getNumCommandsSent();
-        res.json(totalCommands);
+        return res.json(totalCommands);
     } catch (error) {
         console.error("Error with GET /commands/count", error);
-        res.status(500).json({
+        return res.status(500).json({
             message: "Failed to fetch number of commands sent. Please try again later.",
         });
     }
@@ -34,7 +34,7 @@ router.get("/count", async (req, res) => {
  *
  * Updates the analytics count for a specific command.
  */
-router.post("/analytics/count", async (req, res) => {
+router.post("/analytics/count", async (req: Request, res: Response) => {
     try {
         const { command } = req.body;
 
@@ -62,12 +62,11 @@ router.post("/analytics/count", async (req, res) => {
         }
     } catch (error) {
         console.error("Error with POST /commands/analytics/count", error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: "Failed to update command analytics. Please try again later.",
         });
     }
 });
-
 
 export default router;
