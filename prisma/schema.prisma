@@ -15,13 +15,42 @@ datasource db {
 
 // Guild model - represents Discord servers using the bot
 model Guild {
-  id               String   @id @default(uuid())
-  guild_id         BigInt   @unique
+  id               String           @id @default(uuid())
+  guild_id         BigInt           @unique
   name             String
   main_channel_id  BigInt?
-  created_at       DateTime @default(now())
-  updated_at       DateTime @updatedAt
+  created_at       DateTime         @default(now())
+  updated_at       DateTime         @updatedAt
+  summoners        GuildSummoner[]
 
   @@index([guild_id])
   @@map("guilds")
+}
+
+// Summoner model - represents League of Legends players
+model Summoner {
+  puuid      String          @id
+  name       String
+  region     String
+  created_at DateTime        @default(now())
+  updated_at DateTime        @updatedAt
+  guilds     GuildSummoner[]
+
+  @@index([puuid])
+  @@map("summoners")
+}
+
+// Junction table for many-to-many relationship between guilds and summoners
+model GuildSummoner {
+  guild_id       BigInt
+  summoner_puuid String
+  added_at       DateTime @default(now())
+
+  guild    Guild    @relation(fields: [guild_id], references: [guild_id], onDelete: Cascade)
+  summoner Summoner @relation(fields: [summoner_puuid], references: [puuid], onDelete: Cascade)
+
+  @@id([guild_id, summoner_puuid])
+  @@index([guild_id])
+  @@index([summoner_puuid])
+  @@map("guild_summoners")
 }
