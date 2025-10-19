@@ -100,15 +100,28 @@ async function getNewMatchIds(
     matchIds: string[],
     summonerPuuid: string
 ): Promise<string[]> {
-    const existingMatches = await prisma.rankedSoloMatch.findMany({
-        where: {
-            match_id: { in: matchIds },
-            summoner_puuid: summonerPuuid,
-        },
-        select: { match_id: true },
-    });
+    // Check both Ranked Solo and Arena tables due to Riot API queue mismatch bug
+    const [rankedMatches, arenaMatches] = await Promise.all([
+        prisma.rankedSoloMatch.findMany({
+            where: {
+                match_id: { in: matchIds },
+                summoner_puuid: summonerPuuid,
+            },
+            select: { match_id: true },
+        }),
+        prisma.arenaMatch.findMany({
+            where: {
+                match_id: { in: matchIds },
+                summoner_puuid: summonerPuuid,
+            },
+            select: { match_id: true },
+        }),
+    ]);
 
-    const existingIds = new Set(existingMatches.map((m) => m.match_id));
+    const existingIds = new Set([
+        ...rankedMatches.map((m) => m.match_id),
+        ...arenaMatches.map((m) => m.match_id),
+    ]);
     return matchIds.filter((id) => !existingIds.has(id));
 }
 
@@ -170,22 +183,6 @@ async function saveMatchData(
             game_surrendered: participant.gameEndedInSurrender,
         },
     });
-}
-
-async function getNewArenaMatchIds(
-    matchIds: string[],
-    summonerPuuid: string
-): Promise<string[]> {
-    const existingMatches = await prisma.arenaMatch.findMany({
-        where: {
-            match_id: { in: matchIds },
-            summoner_puuid: summonerPuuid,
-        },
-        select: { match_id: true },
-    });
-
-    const existingIds = new Set(existingMatches.map((m) => m.match_id));
-    return matchIds.filter((id) => !existingIds.has(id));
 }
 
 async function saveArenaMatchData(
@@ -261,12 +258,21 @@ async function processSummonerMatches(
     const daysToFetch = cachedRecently ? RECENT_CACHE_DAYS : DEFAULT_FETCH_DAYS;
     const region = summoner.region ?? "na1";
     const area = getAreaFromRegion(region) || "americas";
+    const queueName = getQueueName(queueId);
 
     const isArena = queueId === 1700;
-    const getNewIds = isArena ? getNewArenaMatchIds : getNewMatchIds;
-    const saveData = isArena ? saveArenaMatchData : saveMatchData;
 
-    let matchesCached = 0;
+    // Count existing matches in database for this summoner/queue
+    const existingInDb = isArena
+        ? await prisma.arenaMatch.count({
+              where: { summoner_puuid: summoner.puuid },
+          })
+        : await prisma.rankedSoloMatch.count({
+              where: { summoner_puuid: summoner.puuid },
+          });
+
+    let newMatchesFound = 0;
+    let newMatchesSaved = 0;
     let daysFetched = 0;
 
     while (daysFetched < daysToFetch) {
@@ -288,26 +294,35 @@ async function processSummonerMatches(
                 queueId
             );
 
-            const newMatchIds = await getNewIds(matchIds, summoner.puuid);
+            const newMatchIds = await getNewMatchIds(matchIds, summoner.puuid);
+            newMatchesFound += newMatchIds.length;
 
             for (const matchId of newMatchIds) {
                 try {
                     const matchData = await fetchMatchDetails(matchId, area);
 
-                    if (matchData.info.queueId === queueId) {
-                        await saveData(matchData, summoner.puuid);
-                        matchesCached++;
+                    // Save to the correct table based on actual queue ID
+                    const actualIsArena = matchData.info.queueId === 1700;
+                    const actualSaveData = actualIsArena
+                        ? saveArenaMatchData
+                        : saveMatchData;
+
+                    try {
+                        await actualSaveData(matchData, summoner.puuid);
+                        newMatchesSaved++;
+                    } catch (saveError: any) {
+                        throw saveError;
                     }
                 } catch (error) {
                     logger.error(
-                        `Models > matches > Error processing match ${matchId}`,
+                        `Models > matches > Error processing match ${matchId} for ${summoner.name}`,
                         error
                     );
                 }
             }
         } catch (error) {
             logger.error(
-                `Models > matches > Error fetching matches for ${summoner.name}`,
+                `Models > matches > Error fetching ${queueName} matches for ${summoner.name}`,
                 error
             );
         }
@@ -315,7 +330,12 @@ async function processSummonerMatches(
         daysFetched += batchDays;
     }
 
-    return matchesCached;
+    // Log summary
+    logger.info(
+        `Models > matches > ${summoner.name} - ${queueName}: ${existingInDb} in DB, ${newMatchesFound} new found, ${newMatchesSaved} saved`
+    );
+
+    return newMatchesSaved;
 }
 
 export async function cacheMatchData(
@@ -340,14 +360,6 @@ export async function cacheMatchData(
                     queueId
                 );
                 totals[queueId] += matchesCached;
-
-                if (matchesCached > 0) {
-                    logger.info(
-                        `Models > matches > Cached ${matchesCached} ${getQueueName(
-                            queueId
-                        )} matches for ${summoner.name}`
-                    );
-                }
             }
             await updateCachedTimestamp(summoner);
         }
